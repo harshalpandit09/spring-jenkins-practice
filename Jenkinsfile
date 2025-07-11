@@ -4,7 +4,7 @@ pipeline {
     parameters {
         string(name: 'BRANCH', defaultValue: 'main', description: 'Git branch to build')
         choice(name: 'COMPONENT', choices: ['ALL', 'Services', 'SQL', 'Metadata'], description: 'Select component to build')
-        choice(name: 'CLIENT', choices: ['HSBC', 'JP', 'DB'], description: 'Client name')
+        choice(name: 'CLIENT', choices: ['HSBC', 'JP Morgan', 'DB Bank'], description: 'Client name')
         choice(name: 'ENVIRONMENT', choices: ['DEV', 'UAT', 'PROD'], description: 'Target environment')
     }
 

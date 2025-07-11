@@ -74,7 +74,7 @@ def copy_artifacts(component, workspace, deploy_path):
         for file in os.listdir(src_dir):
             if file.endswith(".jar"):
                 shutil.copy(os.path.join(src_dir, file), tgt_dir)
-                print(f"Copied {file} → {tgt_dir}")
+                print(f"Copied {file} -> {tgt_dir}")
 
 # MAIN ENTRY: Called when script runs
 def main():

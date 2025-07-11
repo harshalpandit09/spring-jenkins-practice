@@ -20,7 +20,7 @@ def run_maven_build(component):
         print(f"Invalid COMPONENT: {component}")
         sys.exit(1)
 
-    print(f"🔧 Running Maven build for: {module}")
+    print(f"Running Maven build for: {module}")
 
     # Runs: mvn clean install -pl module -am
     result = subprocess.run(

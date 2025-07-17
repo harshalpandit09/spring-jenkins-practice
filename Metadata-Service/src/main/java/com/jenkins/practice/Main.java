@@ -8,6 +8,6 @@ public class Main {
         FileWriter writer = new FileWriter("metadata-output.txt", true);
         writer.write("Metadata Service: Metadata written via Jenkins build!\n");
         writer.close();
-        System.out.println("✅ File written!");
+        System.out.println("File written!");
     }
 }

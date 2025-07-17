@@ -1,0 +1,25 @@
+<configuration scan="true">
+
+    <!-- Directly define fallback values -->
+    <property name="LOG_PATH" value="logs"/>
+    <property name="APP_NAME" value="backend-webapi"/>
+
+    <property name="LOG_PATTERN"
+              value="%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"/>
+
+    <appender name="ROLLING" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_PATH}/${APP_NAME}.log</file>
+
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_PATH}/%d{yyyy-MM-dd}/application.log</fileNamePattern>
+        </rollingPolicy>
+
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+        </encoder>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="ROLLING" />
+    </root>
+</configuration>

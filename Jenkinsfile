@@ -5,7 +5,7 @@ pipeline {
         booleanParam(name: 'BUILD_SERVICES',  defaultValue: false, description: 'Build Services module')
         booleanParam(name: 'BUILD_SQL',       defaultValue: false, description: 'Build SQL module')
         booleanParam(name: 'BUILD_METADATA',  defaultValue: false, description: 'Build Metadata module')
-        string(name: 'RELEASE', defaultValue: '1.0.0', description: 'Release version tag')
+        string(name: 'RELEASE', defaultValue: '25.1.0', description: 'Release version tag')
     }
 
     environment {

@@ -5,7 +5,7 @@ pipeline {
         booleanParam(name: 'BUILD_SERVICES',  defaultValue: false, description: 'Build Services module')
         booleanParam(name: 'BUILD_SQL',       defaultValue: false, description: 'Build SQL module')
         booleanParam(name: 'BUILD_METADATA',  defaultValue: false, description: 'Build Metadata module')
-        string(name: 'RELEASE', defaultValue: '25.1.0', description: 'Release version tag')
+        string(name: 'RELEASE', defaultValue: '1.0.0', description: 'Release version tag')
     }
 
     stages {
@@ -35,7 +35,10 @@ pipeline {
                     def dateTag = new Date().format('ddMM')
                     echo "Building Services module..."
                     bat "mvn clean package -f backend-webapi/pom.xml -DskipTests"
-                    bat "rename backend-webapi\\target\\backend-webapi.jar backend-webapi.${params.RELEASE}.${dateTag}.${BUILD_NUMBER}.jar"
+                    bat """
+                        cd backend-webapi\\target
+                        rename backend-webapi-0.0.1-SNAPSHOT.jar backend-webapi.${params.RELEASE}.${dateTag}.${BUILD_NUMBER}.jar
+                    """
                 }
             }
         }
@@ -47,7 +50,10 @@ pipeline {
                     def dateTag = new Date().format('ddMM')
                     echo "Building SQL module..."
                     bat "mvn clean package -f sql-service/pom.xml -DskipTests"
-                    bat "rename sql-service\\target\\sql-service.jar sql-service.${params.RELEASE}.${dateTag}.${BUILD_NUMBER}.jar"
+                    bat """
+                        cd sql-service\\target
+                        rename sql-service-0.0.1-SNAPSHOT.jar sql-service.${params.RELEASE}.${dateTag}.${BUILD_NUMBER}.jar
+                    """
                 }
             }
         }
@@ -59,7 +65,10 @@ pipeline {
                     def dateTag = new Date().format('ddMM')
                     echo "Building Metadata module..."
                     bat "mvn clean package -f metadata-service/pom.xml -DskipTests"
-                    bat "rename metadata-service\\target\\metadata-service.jar metadata-service.${params.RELEASE}.${dateTag}.${BUILD_NUMBER}.jar"
+                    bat """
+                        cd metadata-service\\target
+                        rename metadata-service-0.0.1-SNAPSHOT.jar metadata-service.${params.RELEASE}.${dateTag}.${BUILD_NUMBER}.jar
+                    """
                 }
             }
         }
@@ -75,10 +84,10 @@ pipeline {
 
     post {
         success {
-            echo "Build completed successfully on branch: ${env.BRANCH_NAME}"
+            echo "✅ Build completed successfully on branch: ${env.BRANCH_NAME}"
         }
         failure {
-            echo "Build failed on branch: ${env.BRANCH_NAME}"
+            echo "❌ Build failed on branch: ${env.BRANCH_NAME}"
         }
     }
 }

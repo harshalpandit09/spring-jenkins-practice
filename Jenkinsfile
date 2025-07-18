@@ -5,13 +5,14 @@ pipeline {
         booleanParam(name: 'BUILD_SERVICES',  defaultValue: false, description: 'Build Services module')
         booleanParam(name: 'BUILD_SQL',       defaultValue: false, description: 'Build SQL module')
         booleanParam(name: 'BUILD_METADATA',  defaultValue: false, description: 'Build Metadata module')
-        string(name: 'RELEASE', defaultValue: '25.1.0', description: 'Release version tag')
+        string(name: 'RELEASE', defaultValue: '1.0.0', description: 'Release version tag')
     }
 
     environment {
         DATE_TAG    = "${new Date().format('ddMM')}"
         BUILD_TAG   = "${params.RELEASE}.${new Date().format('ddMM')}.${env.BUILD_NUMBER}"
-        RELEASE_DIR = "release\\${params.RELEASE}.${new Date().format('ddMM')}.${env.BUILD_NUMBER}"
+        RELEASE_DIR = "Builds\\${params.RELEASE}"
+        MANIFEST    = "Builds\\${params.RELEASE}\\build_manifest.txt"
     }
 
     stages {
@@ -70,18 +71,35 @@ pipeline {
             }
         }
 
+        stage('Update Manifest') {
+            when { expression { params.BUILD_SERVICES || params.BUILD_SQL || params.BUILD_METADATA } }
+            steps {
+                script {
+                    echo "Rebuilding manifest file in ${MANIFEST}"
+                    // Delete old manifest
+                    bat "del /Q ${MANIFEST} || echo No old manifest"
+                    // Generate new manifest
+                    bat """
+                        echo # Build Manifest for RELEASE ${params.RELEASE} > ${MANIFEST}
+                        echo # Last Updated: %DATE% %TIME% >> ${MANIFEST}
+                        for %%F in (${RELEASE_DIR}\\*.jar) do echo %%~nxF >> ${MANIFEST}
+                    """
+                }
+            }
+        }
+
         stage('Archive Artifacts') {
             when { expression { params.BUILD_SERVICES || params.BUILD_SQL || params.BUILD_METADATA } }
             steps {
                 echo "Archiving artifacts from ${RELEASE_DIR}"
-                archiveArtifacts artifacts: "${RELEASE_DIR}/*.jar", fingerprint: true
+                archiveArtifacts artifacts: "${RELEASE_DIR}/*", fingerprint: true
             }
         }
     }
 
     post {
         success {
-            echo "✅ Pipeline completed successfully on branch: ${env.BRANCH_NAME}. Artifacts are in ${RELEASE_DIR}"
+            echo "✅ Pipeline completed successfully on branch: ${env.BRANCH_NAME}. Artifacts and manifest are in ${RELEASE_DIR}"
         }
         failure {
             echo "❌ Pipeline failed on branch: ${env.BRANCH_NAME}"

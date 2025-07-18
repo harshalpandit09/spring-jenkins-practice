@@ -2,10 +2,10 @@ pipeline {
   agent any
 
   parameters {
-    string(name: 'BRANCH',     defaultValue: 'main',  description: 'Git branch to build')
-    choice(name: 'COMPONENT',  choices: ['None','Services','SQL','Metadata','All'],
-           description: 'Select module to build (None = dry‑run)')
-    string(name: 'RELEASE',    defaultValue: '1.0.0',  description: 'Release version tag')
+    booleanParam(name: 'BUILD_SERVICES',  defaultValue: false, description: 'Build Services Module')
+    booleanParam(name: 'BUILD_SQL',       defaultValue: false, description: 'Build SQL Module')
+    booleanParam(name: 'BUILD_METADATA',  defaultValue: false, description: 'Build Metadata Module')
+    string(name: 'RELEASE', defaultValue: '1.0.0', description: 'Release version')
   }
 
   environment {
@@ -13,39 +13,30 @@ pipeline {
   }
 
   stages {
-    stage('Checkout & Clean') {
+    stage('Checkout') {
       steps {
-        // Pull latest code & Jenkinsfile
-        checkout([$class: 'GitSCM',
-                  branches: [[name: params.BRANCH]],
-                  userRemoteConfigs: [[url: 'https://github.com/harshalpandit09/spring-jenkins-practice.git']]])
-        deleteDir()
+        checkout scm
       }
     }
 
-    stage('Build or Dry‑Run') {
+    stage('Build Selected Components') {
       steps {
         script {
-          if (params.COMPONENT == 'None') {
-            echo "Dry‑run: only checked out ${params.BRANCH}"
-          } else {
-            // Map choice → modules
-            def map = [
-              Services : 'backend-webapi',
-              SQL      : 'sql-service',
-              Metadata : 'metadata-service',
-              All      : 'backend-webapi,sql-service,metadata-service'
-            ]
-            def toBuild = map[params.COMPONENT].split(',')
+          def dateTag = new Date().format('ddMM')
 
-            // Build & rename each
-            def dateTag = new Date().format('ddMM')
-            toBuild.each { mod ->
-              sh "${MAVEN_HOME}/bin/mvn clean package -f ${mod}/pom.xml -DskipTests"
-              def src = "${mod}/target/${mod}.jar"
-              def dst = "${mod}.${params.RELEASE}.${dateTag}.${env.BUILD_NUMBER}.jar"
-              sh "mv ${src} ${dst}"
-            }
+          if (params.BUILD_SERVICES) {
+            sh "${MAVEN_HOME}/bin/mvn clean package -f backend-webapi/pom.xml -DskipTests"
+            sh "mv backend-webapi/target/backend-webapi.jar backend-webapi.${params.RELEASE}.${dateTag}.${BUILD_NUMBER}.jar"
+          }
+
+          if (params.BUILD_SQL) {
+            sh "${MAVEN_HOME}/bin/mvn clean package -f sql-service/pom.xml -DskipTests"
+            sh "mv sql-service/target/sql-service.jar sql-service.${params.RELEASE}.${dateTag}.${BUILD_NUMBER}.jar"
+          }
+
+          if (params.BUILD_METADATA) {
+            sh "${MAVEN_HOME}/bin/mvn clean package -f metadata-service/pom.xml -DskipTests"
+            sh "mv metadata-service/target/metadata-service.jar metadata-service.${params.RELEASE}.${dateTag}.${BUILD_NUMBER}.jar"
           }
         }
       }
@@ -56,10 +47,5 @@ pipeline {
         archiveArtifacts artifacts: '*.jar', fingerprint: true
       }
     }
-  }
-
-  post {
-    success { echo "Build complete: ${params.COMPONENT} @ ${params.BRANCH} (v${params.RELEASE})" }
-    failure { echo "Build failed: ${params.COMPONENT} @ ${params.BRANCH}" }
   }
 }

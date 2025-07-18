@@ -42,7 +42,8 @@ pipeline {
                         cd backend-webapi\\target
                         rename backend-webapi-0.0.1-SNAPSHOT.jar backend-webapi.${BUILD_TAG}.jar
                         move backend-webapi.${BUILD_TAG}.jar ..\\..\\${RELEASE_DIR}
-                        copy /Y ..\\..\\${RELEASE_DIR}\\backend-webapi.${BUILD_TAG}.jar ..\\..\\${COMBINED_DIR}\\backend-webapi.${params.RELEASE}.latest.jar
+                        del /Q ..\\..\\${COMBINED_DIR}\\backend-webapi.*.jar
+                        copy /Y ..\\..\\${RELEASE_DIR}\\backend-webapi.${BUILD_TAG}.jar ..\\..\\${COMBINED_DIR}\\backend-webapi.${BUILD_TAG}.jar
                     """
                 }
             }
@@ -58,7 +59,8 @@ pipeline {
                         cd sql-service\\target
                         rename sql-service-0.0.1-SNAPSHOT.jar sql-service.${BUILD_TAG}.jar
                         move sql-service.${BUILD_TAG}.jar ..\\..\\${RELEASE_DIR}
-                        copy /Y ..\\..\\${RELEASE_DIR}\\sql-service.${BUILD_TAG}.jar ..\\..\\${COMBINED_DIR}\\sql-service.${params.RELEASE}.latest.jar
+                        del /Q ..\\..\\${COMBINED_DIR}\\sql-service.*.jar
+                        copy /Y ..\\..\\${RELEASE_DIR}\\sql-service.${BUILD_TAG}.jar ..\\..\\${COMBINED_DIR}\\sql-service.${BUILD_TAG}.jar
                     """
                 }
             }
@@ -74,7 +76,8 @@ pipeline {
                         cd metadata-service\\target
                         rename metadata-service-0.0.1-SNAPSHOT.jar metadata-service.${BUILD_TAG}.jar
                         move metadata-service.${BUILD_TAG}.jar ..\\..\\${RELEASE_DIR}
-                        copy /Y ..\\..\\${RELEASE_DIR}\\metadata-service.${BUILD_TAG}.jar ..\\..\\${COMBINED_DIR}\\metadata-service.${params.RELEASE}.latest.jar
+                        del /Q ..\\..\\${COMBINED_DIR}\\metadata-service.*.jar
+                        copy /Y ..\\..\\${RELEASE_DIR}\\metadata-service.${BUILD_TAG}.jar ..\\..\\${COMBINED_DIR}\\metadata-service.${BUILD_TAG}.jar
                     """
                 }
             }
@@ -104,7 +107,7 @@ pipeline {
 
     post {
         success {
-            echo "✅ Pipeline completed successfully on branch: ${env.BRANCH_NAME}. Artifacts and combined build are in ${COMBINED_DIR}"
+            echo "✅ Pipeline completed successfully. Latest combined builds are in ${COMBINED_DIR}"
         }
         failure {
             echo "❌ Pipeline failed on branch: ${env.BRANCH_NAME}"

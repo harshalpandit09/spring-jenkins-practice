@@ -2,11 +2,10 @@ pipeline {
     agent any
 
     parameters {
-        booleanParam(name: 'DRY_RUN', defaultValue: false, description: 'Check this for a dry run (only pull code)')
         booleanParam(name: 'BUILD_SERVICES',  defaultValue: false, description: 'Build Services module')
         booleanParam(name: 'BUILD_SQL',       defaultValue: false, description: 'Build SQL module')
         booleanParam(name: 'BUILD_METADATA',  defaultValue: false, description: 'Build Metadata module')
-        string(name: 'RELEASE', defaultValue: '1.0.0', description: 'Release version tag')
+        string(name: 'RELEASE', defaultValue: '25.1.0', description: 'Release version tag')
     }
 
     stages {
@@ -17,45 +16,56 @@ pipeline {
             }
         }
 
-        stage('Dry Run Check') {
-            when { expression { params.DRY_RUN } }
-            steps {
-                echo "Dry run selected: Only fetched the latest code & Jenkinsfile."
-            }
-        }
-
-        stage('Build Selected Components') {
-            when { expression { !params.DRY_RUN } }
+        stage('Check Selected Components') {
             steps {
                 script {
-                    def dateTag = new Date().format('ddMM')
-
-                    // Build Services
-                    if (params.BUILD_SERVICES) {
-                        echo "Building Services module..."
-                        sh "mvn clean package -f backend-webapi/pom.xml -DskipTests"
-                        sh "mv backend-webapi/target/backend-webapi.jar backend-webapi.${params.RELEASE}.${dateTag}.${BUILD_NUMBER}.jar"
-                    }
-
-                    // Build SQL
-                    if (params.BUILD_SQL) {
-                        echo "Building SQL module..."
-                        sh "mvn clean package -f sql-service/pom.xml -DskipTests"
-                        sh "mv sql-service/target/sql-service.jar sql-service.${params.RELEASE}.${dateTag}.${BUILD_NUMBER}.jar"
-                    }
-
-                    // Build Metadata
-                    if (params.BUILD_METADATA) {
-                        echo "Building Metadata module..."
-                        sh "mvn clean package -f metadata-service/pom.xml -DskipTests"
-                        sh "mv metadata-service/target/metadata-service.jar metadata-service.${params.RELEASE}.${dateTag}.${BUILD_NUMBER}.jar"
+                    if (!params.BUILD_SERVICES && !params.BUILD_SQL && !params.BUILD_METADATA) {
+                        echo "No components selected — performing dry run (checkout only)."
+                        currentBuild.result = 'SUCCESS'
+                        error("Dry run completed — exiting pipeline.")
                     }
                 }
             }
         }
 
+        stage('Build Services') {
+            when { expression { params.BUILD_SERVICES } }
+            steps {
+                script {
+                    def dateTag = new Date().format('ddMM')
+                    echo "Building Services module..."
+                    bat "mvn clean package -f backend-webapi/pom.xml -DskipTests"
+                    bat "rename backend-webapi\\target\\backend-webapi.jar backend-webapi.${params.RELEASE}.${dateTag}.${BUILD_NUMBER}.jar"
+                }
+            }
+        }
+
+        stage('Build SQL') {
+            when { expression { params.BUILD_SQL } }
+            steps {
+                script {
+                    def dateTag = new Date().format('ddMM')
+                    echo "Building SQL module..."
+                    bat "mvn clean package -f sql-service/pom.xml -DskipTests"
+                    bat "rename sql-service\\target\\sql-service.jar sql-service.${params.RELEASE}.${dateTag}.${BUILD_NUMBER}.jar"
+                }
+            }
+        }
+
+        stage('Build Metadata') {
+            when { expression { params.BUILD_METADATA } }
+            steps {
+                script {
+                    def dateTag = new Date().format('ddMM')
+                    echo "Building Metadata module..."
+                    bat "mvn clean package -f metadata-service/pom.xml -DskipTests"
+                    bat "rename metadata-service\\target\\metadata-service.jar metadata-service.${params.RELEASE}.${dateTag}.${BUILD_NUMBER}.jar"
+                }
+            }
+        }
+
         stage('Archive Artifacts') {
-            when { expression { !params.DRY_RUN } }
+            when { expression { params.BUILD_SERVICES || params.BUILD_SQL || params.BUILD_METADATA } }
             steps {
                 archiveArtifacts artifacts: '*.jar', fingerprint: true
                 echo "Artifacts archived successfully."

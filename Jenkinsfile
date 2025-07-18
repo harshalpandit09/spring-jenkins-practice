@@ -96,6 +96,14 @@ pipeline {
             }
         }
 
+        stage('Summary of Combined Build') {
+            when { expression { params.BUILD_SERVICES || params.BUILD_SQL || params.BUILD_METADATA } }
+            steps {
+                echo "##### Summary of Combined Build #####"
+                bat "type ${MANIFEST_FILE}"
+            }
+        }
+
         stage('Archive Artifacts') {
             when { expression { params.BUILD_SERVICES || params.BUILD_SQL || params.BUILD_METADATA } }
             steps {

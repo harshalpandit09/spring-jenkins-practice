@@ -20,9 +20,7 @@ pipeline {
             steps {
                 script {
                     if (!params.BUILD_SERVICES && !params.BUILD_SQL && !params.BUILD_METADATA) {
-                        echo "No components selected — performing dry run (checkout only)."
-                        currentBuild.result = 'SUCCESS'
-                        error("Dry run completed — exiting pipeline.")
+                        echo "No components selected — checkout completed. Skipping build stages."
                     }
                 }
             }
@@ -84,10 +82,10 @@ pipeline {
 
     post {
         success {
-            echo "✅ Build completed successfully on branch: ${env.BRANCH_NAME}"
+            echo "✅ Pipeline completed successfully on branch: ${env.BRANCH_NAME}"
         }
         failure {
-            echo "❌ Build failed on branch: ${env.BRANCH_NAME}"
+            echo "❌ Pipeline failed on branch: ${env.BRANCH_NAME}"
         }
     }
 }

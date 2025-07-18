@@ -1,60 +1,65 @@
 pipeline {
-    agent any
+  agent any
 
-    parameters {
-        string(name: 'BRANCH', defaultValue: 'main', description: 'Git branch to build')
-        choice(name: 'COMPONENT', choices: ['ALL', 'Services', 'SQL', 'Metadata'], description: 'Select component to build')
-        choice(name: 'CLIENT', choices: ['HSBC', 'JP Morgan', 'DB Bank','Snehal Bank'], description: 'Client name')
-        choice(name: 'ENVIRONMENT', choices: ['DEV', 'UAT', 'PROD'], description: 'Target environment')
+  parameters {
+    string(name: 'BRANCH',     defaultValue: 'main',  description: 'Git branch to build')
+    choice(name: 'COMPONENT',  choices: ['None','Services','SQL','Metadata','All'],
+           description: 'Select module to build (None = dry‑run)')
+    string(name: 'RELEASE',    defaultValue: '1.0.0',  description: 'Release version tag')
+  }
+
+  environment {
+    MAVEN_HOME = tool name: 'Maven-3.8.5', type: 'maven'
+  }
+
+  stages {
+    stage('Checkout & Clean') {
+      steps {
+        // Pull latest code & Jenkinsfile
+        checkout([$class: 'GitSCM',
+                  branches: [[name: params.BRANCH]],
+                  userRemoteConfigs: [[url: 'https://github.com/harshalpandit09/spring-jenkins-practice.git']]])
+        deleteDir()
+      }
     }
 
-    environment {
-        MAVEN_HOME = tool 'Maven'
-        PATH = "${env.MAVEN_HOME}/bin;${env.PATH}" // Use semicolon for Windows
+    stage('Build or Dry‑Run') {
+      steps {
+        script {
+          if (params.COMPONENT == 'None') {
+            echo "Dry‑run: only checked out ${params.BRANCH}"
+          } else {
+            // Map choice → modules
+            def map = [
+              Services : 'backend-webapi',
+              SQL      : 'sql-service',
+              Metadata : 'metadata-service',
+              All      : 'backend-webapi,sql-service,metadata-service'
+            ]
+            def toBuild = map[params.COMPONENT].split(',')
+
+            // Build & rename each
+            def dateTag = new Date().format('ddMM')
+            toBuild.each { mod ->
+              sh "${MAVEN_HOME}/bin/mvn clean package -f ${mod}/pom.xml -DskipTests"
+              def src = "${mod}/target/${mod}.jar"
+              def dst = "${mod}.${params.RELEASE}.${dateTag}.${env.BUILD_NUMBER}.jar"
+              sh "mv ${src} ${dst}"
+            }
+          }
+        }
+      }
     }
 
-    stages {
-        stage('Checkout Code') {
-            steps {
-                git branch: "${params.BRANCH}", url: 'https://github.com/harshalpandit09/spring-jenkins-practice.git'
-            }
-        }
-
-        stage('Build with Maven') {
-            steps {
-                script {
-                    def map = [
-                        'Services' : 'backend-webapi',
-                        'SQL'      : 'sql-service',
-                        'Metadata' : 'metadata-service',
-                        'ALL'      : 'backend-webapi,sql-service,metadata-service'
-                    ]
-                    env.COMPONENT_MAP = map[params.COMPONENT]
-                }
-
-                bat "mvn clean install -pl \"%COMPONENT_MAP%\" -am"
-            }
-        }
-
-        stage('Deploy Artifacts') {
-            steps {
-                bat 'python build_and_deploy.py'
-            }
-        }
-
-        stage('Post Deploy') {
-            steps {
-                echo "Build completed and deployed for CLIENT: ${params.CLIENT}, ENV: ${params.ENVIRONMENT}"
-            }
-        }
+    stage('Archive Artifacts') {
+      steps {
+        archiveArtifacts artifacts: '*.jar', fingerprint: true
+      }
     }
+  }
 
-    post {
-        failure {
-            echo "Build failed for CLIENT: ${params.CLIENT} on BRANCH: ${params.BRANCH}"
-        }
-        success {
-            echo "Build & Deployment succeeded!"
-        }
-    }
+  post {
+    success { echo "Build complete: ${params.COMPONENT} @ ${params.BRANCH} (v${params.RELEASE})" }
+    failure { echo "Build failed: ${params.COMPONENT} @ ${params.BRANCH}" }
+  }
 }

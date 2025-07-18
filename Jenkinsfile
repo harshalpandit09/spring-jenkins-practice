@@ -8,10 +8,17 @@ pipeline {
         string(name: 'RELEASE', defaultValue: '25.1.0', description: 'Release version tag')
     }
 
+    environment {
+        DATE_TAG   = "${new Date().format('ddMM')}"
+        BUILD_TAG  = "${params.RELEASE}.${new Date().format('ddMM')}.${env.BUILD_NUMBER}"
+        RELEASE_DIR = "release\\${params.RELEASE}.${new Date().format('ddMM')}.${env.BUILD_NUMBER}"
+    }
+
     stages {
         stage('Checkout Code') {
             steps {
                 checkout scm
+                bat "if not exist ${RELEASE_DIR} mkdir ${RELEASE_DIR}"
                 echo "Code checked out from branch: ${env.BRANCH_NAME}"
             }
         }
@@ -30,12 +37,12 @@ pipeline {
             when { expression { params.BUILD_SERVICES } }
             steps {
                 script {
-                    def dateTag = new Date().format('ddMM')
                     echo "Building Services module..."
                     bat "mvn clean package -f backend-webapi/pom.xml -DskipTests"
                     bat """
                         cd backend-webapi\\target
-                        rename backend-webapi-0.0.1-SNAPSHOT.jar backend-webapi.${params.RELEASE}.${dateTag}.${BUILD_NUMBER}.jar
+                        rename backend-webapi-0.0.1-SNAPSHOT.jar backend-webapi.${BUILD_TAG}.jar
+                        move backend-webapi.${BUILD_TAG}.jar ..\\..\\${RELEASE_DIR}
                     """
                 }
             }
@@ -45,12 +52,12 @@ pipeline {
             when { expression { params.BUILD_SQL } }
             steps {
                 script {
-                    def dateTag = new Date().format('ddMM')
                     echo "Building SQL module..."
                     bat "mvn clean package -f sql-service/pom.xml -DskipTests"
                     bat """
                         cd sql-service\\target
-                        rename sql-service-0.0.1-SNAPSHOT.jar sql-service.${params.RELEASE}.${dateTag}.${BUILD_NUMBER}.jar
+                        rename sql-service-0.0.1-SNAPSHOT.jar sql-service.${BUILD_TAG}.jar
+                        move sql-service.${BUILD_TAG}.jar ..\\..\\${RELEASE_DIR}
                     """
                 }
             }
@@ -60,12 +67,12 @@ pipeline {
             when { expression { params.BUILD_METADATA } }
             steps {
                 script {
-                    def dateTag = new Date().format('ddMM')
                     echo "Building Metadata module..."
                     bat "mvn clean package -f metadata-service/pom.xml -DskipTests"
                     bat """
                         cd metadata-service\\target
-                        rename metadata-service-0.0.1-SNAPSHOT.jar metadata-service.${params.RELEASE}.${dateTag}.${BUILD_NUMBER}.jar
+                        rename metadata-service-0.0.1-SNAPSHOT.jar metadata-service.${BUILD_TAG}.jar
+                        move metadata-service.${BUILD_TAG}.jar ..\\..\\${RELEASE_DIR}
                     """
                 }
             }
@@ -74,15 +81,15 @@ pipeline {
         stage('Archive Artifacts') {
             when { expression { params.BUILD_SERVICES || params.BUILD_SQL || params.BUILD_METADATA } }
             steps {
-                archiveArtifacts artifacts: '*.jar', fingerprint: true
-                echo "Artifacts archived successfully."
+                echo "Archiving artifacts from ${RELEASE_DIR}"
+                archiveArtifacts artifacts: "${RELEASE_DIR}/*.jar", fingerprint: true
             }
         }
     }
 
     post {
         success {
-            echo "✅ Pipeline completed successfully on branch: ${env.BRANCH_NAME}"
+            echo "✅ Pipeline completed successfully on branch: ${env.BRANCH_NAME}. Artifacts are in ${RELEASE_DIR}"
         }
         failure {
             echo "❌ Pipeline failed on branch: ${env.BRANCH_NAME}"

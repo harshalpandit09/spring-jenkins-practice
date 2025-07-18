@@ -5,12 +5,12 @@ pipeline {
         booleanParam(name: 'BUILD_SERVICES',  defaultValue: false, description: 'Build Services module')
         booleanParam(name: 'BUILD_SQL',       defaultValue: false, description: 'Build SQL module')
         booleanParam(name: 'BUILD_METADATA',  defaultValue: false, description: 'Build Metadata module')
-        string(name: 'RELEASE', defaultValue: '25.1.0', description: 'Release version tag')
+        string(name: 'RELEASE', defaultValue: '1.0.0', description: 'Release version tag')
     }
 
     environment {
-        DATE_TAG   = "${new Date().format('ddMM')}"
-        BUILD_TAG  = "${params.RELEASE}.${new Date().format('ddMM')}.${env.BUILD_NUMBER}"
+        DATE_TAG    = "${new Date().format('ddMM')}"
+        BUILD_TAG   = "${params.RELEASE}.${new Date().format('ddMM')}.${env.BUILD_NUMBER}"
         RELEASE_DIR = "release\\${params.RELEASE}.${new Date().format('ddMM')}.${env.BUILD_NUMBER}"
     }
 
@@ -18,18 +18,7 @@ pipeline {
         stage('Checkout Code') {
             steps {
                 checkout scm
-                bat "if not exist ${RELEASE_DIR} mkdir ${RELEASE_DIR}"
                 echo "Code checked out from branch: ${env.BRANCH_NAME}"
-            }
-        }
-
-        stage('Check Selected Components') {
-            steps {
-                script {
-                    if (!params.BUILD_SERVICES && !params.BUILD_SQL && !params.BUILD_METADATA) {
-                        echo "No components selected — checkout completed. Skipping build stages."
-                    }
-                }
             }
         }
 
@@ -38,6 +27,7 @@ pipeline {
             steps {
                 script {
                     echo "Building Services module..."
+                    bat "if not exist ${RELEASE_DIR} mkdir ${RELEASE_DIR}"
                     bat "mvn clean package -f backend-webapi/pom.xml -DskipTests"
                     bat """
                         cd backend-webapi\\target
@@ -53,6 +43,7 @@ pipeline {
             steps {
                 script {
                     echo "Building SQL module..."
+                    bat "if not exist ${RELEASE_DIR} mkdir ${RELEASE_DIR}"
                     bat "mvn clean package -f sql-service/pom.xml -DskipTests"
                     bat """
                         cd sql-service\\target
@@ -68,6 +59,7 @@ pipeline {
             steps {
                 script {
                     echo "Building Metadata module..."
+                    bat "if not exist ${RELEASE_DIR} mkdir ${RELEASE_DIR}"
                     bat "mvn clean package -f metadata-service/pom.xml -DskipTests"
                     bat """
                         cd metadata-service\\target

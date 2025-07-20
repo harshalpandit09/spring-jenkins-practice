@@ -60,8 +60,8 @@ pipeline {
             when { expression { params.BUILD_SERVICES } }
             steps {
                 script {
-                    def jarFile = bat(script: "dir /b ${RELEASE_DIR}\\backend-webapi.*.jar", returnStdout: true).trim()
-                    def serviceTag = jarFile.replace('.jar', '').split('backend-webapi.')[1]
+                    def jarFile = bat(script: "for /f %%i in ('dir /b \"${RELEASE_DIR}\\backend-webapi.*.jar\"') do @echo %%i", returnStdout: true).trim()
+                    def serviceTag = jarFile.replace('backend-webapi.', '').replace('.jar', '')
                     echo "Using tag: ${serviceTag} for backend-webapi"
 
                     bat """
@@ -78,8 +78,8 @@ pipeline {
             when { expression { params.BUILD_SQL } }
             steps {
                 script {
-                    def jarFile = bat(script: "dir /b ${RELEASE_DIR}\\sql-service.*.jar", returnStdout: true).trim()
-                    def sqlTag = jarFile.replace('.jar', '').split('sql-service.')[1]
+                    def jarFile = bat(script: "for /f %%i in ('dir /b \"${RELEASE_DIR}\\sql-service.*.jar\"') do @echo %%i", returnStdout: true).trim()
+                    def sqlTag = jarFile.replace('sql-service.', '').replace('.jar', '')
                     echo "Using tag: ${sqlTag} for sql-service"
 
                     bat """
@@ -96,8 +96,8 @@ pipeline {
             when { expression { params.BUILD_METADATA } }
             steps {
                 script {
-                    def jarFile = bat(script: "dir /b ${RELEASE_DIR}\\metadata-service.*.jar", returnStdout: true).trim()
-                    def metaTag = jarFile.replace('.jar', '').split('metadata-service.')[1]
+                    def jarFile = bat(script: "for /f %%i in ('dir /b \"${RELEASE_DIR}\\metadata-service.*.jar\"') do @echo %%i", returnStdout: true).trim()
+                    def metaTag = jarFile.replace('metadata-service.', '').replace('.jar', '')
                     echo "Using tag: ${metaTag} for metadata-service"
 
                     bat """
@@ -123,7 +123,10 @@ pipeline {
         // ===== SHOW BUILT IMAGES =====
         stage('List Built Docker Images') {
             steps {
-                bat "docker images backend-webapi:* sql-service:* metadata-service:*"
+                script {
+                    echo "Listing Docker images for release ${params.RELEASE}..."
+                    bat "docker images | findstr ${params.RELEASE}"
+                }
             }
         }
 

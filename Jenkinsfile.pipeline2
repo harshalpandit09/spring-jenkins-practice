@@ -2,41 +2,17 @@ pipeline {
     agent any
 
     parameters {
-        // ===== RELEASE INFORMATION =====
-        string(
-            name: 'RELEASE',
-            defaultValue: '25.1.0',
-            description: 'Release version (e.g., 25.1.0)'
-        )
+        // ===== COMPONENTS =====
+        booleanParam(name: 'BUILD_SERVICES', defaultValue: false, description: 'Build Docker image for Backend-WebAPI (Services)')
+        booleanParam(name: 'BUILD_SQL', defaultValue: false, description: 'Build Docker image for SQL-Service')
+        booleanParam(name: 'BUILD_METADATA', defaultValue: false, description: 'Build Docker image for Metadata-Service')
 
-        // ===== COMPONENT SELECTION =====
-        booleanParam(
-            name: 'BUILD_SERVICES',
-            defaultValue: false,
-            description: 'Build Docker image for Backend-WebAPI (Services)'
-        )
-        booleanParam(
-            name: 'BUILD_SQL',
-            defaultValue: false,
-            description: 'Build Docker image for SQL-Service'
-        )
-        booleanParam(
-            name: 'BUILD_METADATA',
-            defaultValue: false,
-            description: 'Build Docker image for Metadata-Service'
-        )
+        // ===== RELEASE =====
+        string(name: 'RELEASE', defaultValue: '25.2.0', description: 'Release version (e.g., 25.2.0)')
 
-        // ===== DEPLOYMENT OPTIONS =====
-        booleanParam(
-            name: 'PUSH_TO_REGISTRY',
-            defaultValue: false,
-            description: 'Push built Docker images to AWS ECR'
-        )
-        booleanParam(
-            name: 'UPLOAD_JARS',
-            defaultValue: false,
-            description: 'Upload JARs to S3'
-        )
+        // ===== OTHER OPTIONS =====
+        booleanParam(name: 'PUSH_TO_REGISTRY', defaultValue: false, description: 'Push built Docker images to AWS ECR')
+        booleanParam(name: 'UPLOAD_JARS', defaultValue: false, description: 'Upload JARs to S3')
     }
 
     environment {
@@ -52,10 +28,10 @@ pipeline {
             steps {
                 script {
                     echo "========= Pipeline 2 Configuration ========="
-                    echo "Release Version       : ${params.RELEASE}"
                     echo "Build Backend-WebAPI  : ${params.BUILD_SERVICES}"
                     echo "Build SQL-Service     : ${params.BUILD_SQL}"
                     echo "Build Metadata-Service: ${params.BUILD_METADATA}"
+                    echo "Release Version       : ${params.RELEASE}"
                     echo "Push to ECR           : ${params.PUSH_TO_REGISTRY}"
                     echo "Upload JARs to S3     : ${params.UPLOAD_JARS}"
                     echo "============================================"
@@ -63,11 +39,10 @@ pipeline {
             }
         }
 
-        // ===== PREPARE WORKSPACE =====
+        // ===== PREPARE =====
         stage('Prepare Workspace') {
             steps {
                 script {
-                    echo "Preparing workspace for Docker builds..."
                     if (!fileExists(RELEASE_DIR)) {
                         error "❌ Release folder does not exist: ${RELEASE_DIR}. Please run Pipeline 1 first."
                     }
@@ -80,75 +55,85 @@ pipeline {
             }
         }
 
-        // ===== BUILD DOCKER IMAGES =====
+        // ===== SERVICES =====
         stage('Build Docker Image - Services') {
             when { expression { params.BUILD_SERVICES } }
             steps {
                 script {
-                    echo "Building Docker image for Backend-WebAPI..."
+                    def jarFile = bat(script: "dir /b ${RELEASE_DIR}\\backend-webapi.*.jar", returnStdout: true).trim()
+                    def serviceTag = jarFile.replace('.jar', '').split('backend-webapi.')[1]
+                    echo "Using tag: ${serviceTag} for backend-webapi"
+
                     bat """
-                        copy "${RELEASE_DIR}\\backend-webapi.*.jar" "${DOCKER_DIR}\\backend-webapi\\backend-webapi.jar" /Y
+                        copy "${RELEASE_DIR}\\${jarFile}" "${DOCKER_DIR}\\backend-webapi\\backend-webapi.jar" /Y
                         cd "${DOCKER_DIR}\\backend-webapi"
-                        docker build -t backend-webapi:${params.RELEASE} .
+                        docker build -t backend-webapi:${serviceTag} .
                     """
                 }
             }
         }
 
+        // ===== SQL =====
         stage('Build Docker Image - SQL') {
             when { expression { params.BUILD_SQL } }
             steps {
                 script {
-                    echo "Building Docker image for SQL-Service..."
+                    def jarFile = bat(script: "dir /b ${RELEASE_DIR}\\sql-service.*.jar", returnStdout: true).trim()
+                    def sqlTag = jarFile.replace('.jar', '').split('sql-service.')[1]
+                    echo "Using tag: ${sqlTag} for sql-service"
+
                     bat """
-                        copy "${RELEASE_DIR}\\sql-service.*.jar" "${DOCKER_DIR}\\sql-service\\sql-service.jar" /Y
+                        copy "${RELEASE_DIR}\\${jarFile}" "${DOCKER_DIR}\\sql-service\\sql-service.jar" /Y
                         cd "${DOCKER_DIR}\\sql-service"
-                        docker build -t sql-service:${params.RELEASE} .
+                        docker build -t sql-service:${sqlTag} .
                     """
                 }
             }
         }
 
+        // ===== METADATA =====
         stage('Build Docker Image - Metadata') {
             when { expression { params.BUILD_METADATA } }
             steps {
                 script {
-                    echo "Building Docker image for Metadata-Service..."
+                    def jarFile = bat(script: "dir /b ${RELEASE_DIR}\\metadata-service.*.jar", returnStdout: true).trim()
+                    def metaTag = jarFile.replace('.jar', '').split('metadata-service.')[1]
+                    echo "Using tag: ${metaTag} for metadata-service"
+
                     bat """
-                        copy "${RELEASE_DIR}\\metadata-service.*.jar" "${DOCKER_DIR}\\metadata-service\\metadata-service.jar" /Y
+                        copy "${RELEASE_DIR}\\${jarFile}" "${DOCKER_DIR}\\metadata-service\\metadata-service.jar" /Y
                         cd "${DOCKER_DIR}\\metadata-service"
-                        docker build -t metadata-service:${params.RELEASE} .
+                        docker build -t metadata-service:${metaTag} .
                     """
                 }
             }
         }
 
-        // ===== PLACEHOLDER STAGES =====
+        // ===== PLACEHOLDERS =====
         stage('Push Docker Images to ECR (Placeholder)') {
             when { expression { params.PUSH_TO_REGISTRY } }
-            steps {
-                echo "Placeholder: Docker image push to AWS ECR will go here."
-            }
+            steps { echo "Placeholder: Docker image push to AWS ECR will go here." }
         }
 
         stage('Upload JARs to S3 (Placeholder)') {
             when { expression { params.UPLOAD_JARS } }
+            steps { echo "Placeholder: Uploading JAR files to S3 will go here." }
+        }
+
+        // ===== SHOW BUILT IMAGES =====
+        stage('List Built Docker Images') {
             steps {
-                echo "Placeholder: Uploading JAR files to S3 will go here."
+                bat "docker images backend-webapi:* sql-service:* metadata-service:*"
             }
         }
 
         // ===== SUMMARY =====
         stage('Summary') {
-            steps {
-                echo "✅ Pipeline 2 completed successfully for Release: ${params.RELEASE}."
-            }
+            steps { echo "✅ Pipeline 2 completed successfully for Release: ${params.RELEASE}." }
         }
     }
 
     post {
-        failure {
-            echo "❌ Pipeline 2 failed."
-        }
+        failure { echo "❌ Pipeline 2 failed." }
     }
 }

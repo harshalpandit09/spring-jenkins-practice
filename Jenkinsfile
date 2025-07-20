@@ -9,11 +9,12 @@ pipeline {
     }
 
     environment {
-        DATE_TAG       = "${new Date().format('ddMM')}"
-        BUILD_TAG      = "${params.RELEASE}.${new Date().format('ddMM')}.${env.BUILD_NUMBER}"
-        RELEASE_DIR    = "Builds\\${params.RELEASE}"
-        COMBINED_DIR   = "Builds\\${params.RELEASE}\\CombinedBuild"
-        MANIFEST_FILE  = "Builds\\${params.RELEASE}\\CombinedBuild\\build_manifest.txt"
+        BASE_DIR      = "D:\\MarketMapBuilds"
+        DATE_TAG      = "${new Date().format('ddMM')}"
+        BUILD_TAG     = "${params.RELEASE}.${DATE_TAG}.${env.BUILD_NUMBER}"
+        RELEASE_DIR   = "${BASE_DIR}\\${params.RELEASE}"
+        COMBINED_DIR  = "${RELEASE_DIR}\\CombinedBuild"
+        MANIFEST_FILE = "${COMBINED_DIR}\\build_manifest.txt"
     }
 
     stages {
@@ -41,9 +42,9 @@ pipeline {
                     bat """
                         cd backend-webapi\\target
                         rename backend-webapi-0.0.1-SNAPSHOT.jar backend-webapi.${BUILD_TAG}.jar
-                        move backend-webapi.${BUILD_TAG}.jar ..\\..\\${RELEASE_DIR}
-                        del /Q ..\\..\\${COMBINED_DIR}\\backend-webapi.*.jar
-                        copy /Y ..\\..\\${RELEASE_DIR}\\backend-webapi.${BUILD_TAG}.jar ..\\..\\${COMBINED_DIR}\\backend-webapi.${BUILD_TAG}.jar
+                        move backend-webapi.${BUILD_TAG}.jar ${RELEASE_DIR}
+                        del /Q ${COMBINED_DIR}\\backend-webapi.*.jar
+                        copy /Y ${RELEASE_DIR}\\backend-webapi.${BUILD_TAG}.jar ${COMBINED_DIR}
                     """
                 }
             }
@@ -58,9 +59,9 @@ pipeline {
                     bat """
                         cd sql-service\\target
                         rename sql-service-0.0.1-SNAPSHOT.jar sql-service.${BUILD_TAG}.jar
-                        move sql-service.${BUILD_TAG}.jar ..\\..\\${RELEASE_DIR}
-                        del /Q ..\\..\\${COMBINED_DIR}\\sql-service.*.jar
-                        copy /Y ..\\..\\${RELEASE_DIR}\\sql-service.${BUILD_TAG}.jar ..\\..\\${COMBINED_DIR}\\sql-service.${BUILD_TAG}.jar
+                        move sql-service.${BUILD_TAG}.jar ${RELEASE_DIR}
+                        del /Q ${COMBINED_DIR}\\sql-service.*.jar
+                        copy /Y ${RELEASE_DIR}\\sql-service.${BUILD_TAG}.jar ${COMBINED_DIR}
                     """
                 }
             }
@@ -75,9 +76,9 @@ pipeline {
                     bat """
                         cd metadata-service\\target
                         rename metadata-service-0.0.1-SNAPSHOT.jar metadata-service.${BUILD_TAG}.jar
-                        move metadata-service.${BUILD_TAG}.jar ..\\..\\${RELEASE_DIR}
-                        del /Q ..\\..\\${COMBINED_DIR}\\metadata-service.*.jar
-                        copy /Y ..\\..\\${RELEASE_DIR}\\metadata-service.${BUILD_TAG}.jar ..\\..\\${COMBINED_DIR}\\metadata-service.${BUILD_TAG}.jar
+                        move metadata-service.${BUILD_TAG}.jar ${RELEASE_DIR}
+                        del /Q ${COMBINED_DIR}\\metadata-service.*.jar
+                        copy /Y ${RELEASE_DIR}\\metadata-service.${BUILD_TAG}.jar ${COMBINED_DIR}
                     """
                 }
             }
@@ -101,14 +102,6 @@ pipeline {
             steps {
                 echo "##### Summary of Combined Build #####"
                 bat "type ${MANIFEST_FILE}"
-            }
-        }
-
-        stage('Archive Artifacts') {
-            when { expression { params.BUILD_SERVICES || params.BUILD_SQL || params.BUILD_METADATA } }
-            steps {
-                echo "Archiving artifacts from ${RELEASE_DIR} and ${COMBINED_DIR}"
-                archiveArtifacts artifacts: "${RELEASE_DIR}/*, ${COMBINED_DIR}/*", fingerprint: true
             }
         }
     }

@@ -1,0 +1,95 @@
+pipeline {
+    agent any
+
+    parameters {
+        booleanParam(name: 'BUILD_SERVICES',  defaultValue: false, description: 'Package Services into Docker')
+        booleanParam(name: 'BUILD_SQL',       defaultValue: false, description: 'Package SQL into Docker')
+        booleanParam(name: 'BUILD_METADATA',  defaultValue: false, description: 'Package Metadata into Docker')
+        string(name: 'RELEASE', defaultValue: '25.1.0', description: 'Release version to package')
+        booleanParam(name: 'PUSH_TO_ECR', defaultValue: false, description: 'Push built Docker images to AWS ECR')
+        booleanParam(name: 'UPLOAD_JARS_TO_S3', defaultValue: false, description: 'Upload JARs to AWS S3')
+    }
+
+    environment {
+        BUILD_TAG = "${params.RELEASE}.${new Date().format('ddMM')}.${env.BUILD_NUMBER}"
+        COMBINED_DIR = "Builds\\${params.RELEASE}\\CombinedBuild"
+    }
+
+    stages {
+        stage('Prepare Workspace') {
+            steps {
+                echo "Preparing workspace for Docker builds..."
+                bat "if not exist ${COMBINED_DIR} exit 1"
+            }
+        }
+
+        stage('Build Docker Image - Services') {
+            when { expression { params.BUILD_SERVICES } }
+            steps {
+                script {
+                    echo "Building Docker image for Services..."
+                    bat """
+                        copy ${COMBINED_DIR}\\backend-webapi.*.jar docker\\backend-webapi\\backend-webapi.jar
+                        docker build -t backend-webapi:${BUILD_TAG} docker\\backend-webapi
+                    """
+                }
+            }
+        }
+
+        stage('Build Docker Image - SQL') {
+            when { expression { params.BUILD_SQL } }
+            steps {
+                script {
+                    echo "Building Docker image for SQL..."
+                    bat """
+                        copy ${COMBINED_DIR}\\sql-service.*.jar docker\\sql-service\\sql-service.jar
+                        docker build -t sql-service:${BUILD_TAG} docker\\sql-service
+                    """
+                }
+            }
+        }
+
+        stage('Build Docker Image - Metadata') {
+            when { expression { params.BUILD_METADATA } }
+            steps {
+                script {
+                    echo "Building Docker image for Metadata..."
+                    bat """
+                        copy ${COMBINED_DIR}\\metadata-service.*.jar docker\\metadata-service\\metadata-service.jar
+                        docker build -t metadata-service:${BUILD_TAG} docker\\metadata-service
+                    """
+                }
+            }
+        }
+
+        stage('Push Docker Images to ECR (Placeholder)') {
+            when { expression { params.PUSH_TO_ECR } }
+            steps {
+                echo "ECR push is not implemented yet. This is a placeholder."
+            }
+        }
+
+        stage('Upload JARs to S3 (Placeholder)') {
+            when { expression { params.UPLOAD_JARS_TO_S3 } }
+            steps {
+                echo "S3 upload is not implemented yet. This is a placeholder."
+            }
+        }
+
+        stage('Summary') {
+            steps {
+                echo "Docker images built with tag: ${BUILD_TAG}"
+                bat "docker images | findstr ${BUILD_TAG}"
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "✅ Pipeline 2 completed successfully."
+        }
+        failure {
+            echo "❌ Pipeline 2 failed."
+        }
+    }
+}

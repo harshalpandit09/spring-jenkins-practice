@@ -2,8 +2,10 @@ pipeline {
     agent any
 
     parameters {
-        string(name: 'RELEASE', defaultValue: '25.1.0', description: 'Release version (e.g., 25.1.0)')
-        choice(name: 'COMPONENT', choices: ['ALL', 'SERVICES', 'SQL', 'METADATA'], description: 'Select component to build Docker image')
+        string(name: 'RELEASE', defaultValue: '25.2.0', description: 'Release version (e.g., 25.1.0)')
+        booleanParam(name: 'BUILD_SERVICES', defaultValue: false, description: 'Build Docker image for backend-webapi')
+        booleanParam(name: 'BUILD_SQL', defaultValue: false, description: 'Build Docker image for sql-service')
+        booleanParam(name: 'BUILD_METADATA', defaultValue: false, description: 'Build Docker image for metadata-service')
         booleanParam(name: 'PUSH_TO_REGISTRY', defaultValue: false, description: 'Push image to ECR?')
         booleanParam(name: 'UPLOAD_JARS', defaultValue: false, description: 'Upload .jars to S3?')
     }
@@ -15,7 +17,6 @@ pipeline {
     }
 
     stages {
-
         stage('Prepare Workspace') {
             steps {
                 script {
@@ -23,12 +24,17 @@ pipeline {
                     if (!fileExists(RELEASE_DIR)) {
                         error "❌ Release folder does not exist: ${RELEASE_DIR}. Please run Pipeline 1 first."
                     }
+                    if (!params.BUILD_SERVICES && !params.BUILD_SQL && !params.BUILD_METADATA) {
+                        echo "⚠️ No components selected. Dry run only."
+                        currentBuild.result = 'SUCCESS'
+                        error "Dry run: No components selected."
+                    }
                 }
             }
         }
 
         stage('Build Docker Image - Services') {
-            when { expression { params.COMPONENT == 'ALL' || params.COMPONENT == 'SERVICES' } }
+            when { expression { params.BUILD_SERVICES } }
             steps {
                 script {
                     echo "Building Docker image for backend-webapi..."
@@ -42,10 +48,10 @@ pipeline {
         }
 
         stage('Build Docker Image - SQL') {
-            when { expression { params.COMPONENT == 'ALL' || params.COMPONENT == 'SQL' } }
+            when { expression { params.BUILD_SQL } }
             steps {
                 script {
-                    echo "Building Docker image for SQL-Service..."
+                    echo "Building Docker image for sql-service..."
                     bat """
                         copy "${RELEASE_DIR}\\sql-service.*.jar" "${DOCKER_DIR}\\sql-service\\sql-service.jar" /Y
                         cd "${DOCKER_DIR}\\sql-service"
@@ -56,10 +62,10 @@ pipeline {
         }
 
         stage('Build Docker Image - Metadata') {
-            when { expression { params.COMPONENT == 'ALL' || params.COMPONENT == 'METADATA' } }
+            when { expression { params.BUILD_METADATA } }
             steps {
                 script {
-                    echo "Building Docker image for Metadata-Service..."
+                    echo "Building Docker image for metadata-service..."
                     bat """
                         copy "${RELEASE_DIR}\\metadata-service.*.jar" "${DOCKER_DIR}\\metadata-service\\metadata-service.jar" /Y
                         cd "${DOCKER_DIR}\\metadata-service"

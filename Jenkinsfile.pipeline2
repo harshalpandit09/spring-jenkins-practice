@@ -49,7 +49,7 @@ pipeline {
                     if (!params.BUILD_SERVICES && !params.BUILD_SQL && !params.BUILD_METADATA) {
                         echo "⚠ No components selected. Dry run only."
                         currentBuild.result = 'SUCCESS'
-                        error "Dry run: No components selected."
+                        return  // Exit without failing
                     }
                 }
             }
@@ -60,7 +60,10 @@ pipeline {
             when { expression { params.BUILD_SERVICES } }
             steps {
                 script {
-                    def jarFile = bat(script: "for /f %%i in ('dir /b \"${RELEASE_DIR}\\backend-webapi.*.jar\"') do @echo %%i", returnStdout: true).trim()
+                    def jarFile = bat(
+                        script: "for /f %%i in ('dir /b \"${RELEASE_DIR}\\backend-webapi.*.jar\"') do @echo %%i & goto :break\n:break",
+                        returnStdout: true
+                    ).trim()
                     def serviceTag = jarFile.replace('backend-webapi.', '').replace('.jar', '')
                     echo "Using tag: ${serviceTag} for backend-webapi"
 
@@ -78,7 +81,10 @@ pipeline {
             when { expression { params.BUILD_SQL } }
             steps {
                 script {
-                    def jarFile = bat(script: "for /f %%i in ('dir /b \"${RELEASE_DIR}\\sql-service.*.jar\"') do @echo %%i", returnStdout: true).trim()
+                    def jarFile = bat(
+                        script: "for /f %%i in ('dir /b \"${RELEASE_DIR}\\sql-service.*.jar\"') do @echo %%i & goto :break\n:break",
+                        returnStdout: true
+                    ).trim()
                     def sqlTag = jarFile.replace('sql-service.', '').replace('.jar', '')
                     echo "Using tag: ${sqlTag} for sql-service"
 
@@ -96,7 +102,10 @@ pipeline {
             when { expression { params.BUILD_METADATA } }
             steps {
                 script {
-                    def jarFile = bat(script: "for /f %%i in ('dir /b \"${RELEASE_DIR}\\metadata-service.*.jar\"') do @echo %%i", returnStdout: true).trim()
+                    def jarFile = bat(
+                        script: "for /f %%i in ('dir /b \"${RELEASE_DIR}\\metadata-service.*.jar\"') do @echo %%i & goto :break\n:break",
+                        returnStdout: true
+                    ).trim()
                     def metaTag = jarFile.replace('metadata-service.', '').replace('.jar', '')
                     echo "Using tag: ${metaTag} for metadata-service"
 

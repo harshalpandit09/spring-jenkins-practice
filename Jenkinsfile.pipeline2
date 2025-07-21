@@ -21,11 +21,10 @@ pipeline {
         DOCKER_DIR = "${WORKSPACE}\\docker"
         DOCKER_MANIFEST = "${BASE_DIR}\\${params.RELEASE}\\DockerBuildInfo.txt"
 
-        // AWS & ECR
+        AWS_REGION = "eu-north-1"
+        AWS_CRED_ID = "aws-jenkins"
         ECR_REGISTRY = "969258966375.dkr.ecr.eu-north-1.amazonaws.com"
         ECR_REPO = "marketmap-backend"
-        AWS_CRED_ID = "aws-jenkins" // Jenkins credentials ID
-        AWS_REGION = "eu-north-1"
         S3_BUCKET = "marketmap-jar-artifacts"
     }
 
@@ -60,7 +59,6 @@ pipeline {
                         return
                     }
 
-                    // Clear the Docker Manifest file
                     bat """
                         echo # Docker Build Manifest for RELEASE ${params.RELEASE} > "${DOCKER_MANIFEST}"
                         echo # Last Updated: %DATE% %TIME% >> "${DOCKER_MANIFEST}"
@@ -143,8 +141,12 @@ pipeline {
                         echo "Pushing Docker images to ECR..."
                         bat """
                             for /f %%i in ('type "${DOCKER_MANIFEST}" ^| findstr /V "#"') do (
-                                docker tag %%i ${ECR_REGISTRY}/${ECR_REPO}:%%i
-                                docker push ${ECR_REGISTRY}/${ECR_REPO}:%%i
+                                setlocal enabledelayedexpansion
+                                set img=%%i
+                                set img=!img::=-!
+                                docker tag %%i ${ECR_REGISTRY}/${ECR_REPO}:!img!
+                                docker push ${ECR_REGISTRY}/${ECR_REPO}:!img!
+                                endlocal
                             )
                         """
                     }
@@ -158,6 +160,7 @@ pipeline {
             steps {
                 script {
                     withAWS(credentials: AWS_CRED_ID, region: AWS_REGION) {
+                        echo "Uploading JARs to S3..."
                         bat """
                             aws s3 cp "${RELEASE_DIR}" s3://${S3_BUCKET}/${params.RELEASE}/ --recursive
                         """

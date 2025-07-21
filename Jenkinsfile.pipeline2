@@ -16,14 +16,15 @@ pipeline {
         DOCKER_DIR      = "${WORKSPACE}\\docker"
         DOCKER_MANIFEST = "${BASE_DIR}\\${params.RELEASE}\\DockerBuildInfo.txt"
 
-        AWS_REGION   = "eu-north-1"
-        ECR_REGISTRY = "969258966375.dkr.ecr.${AWS_REGION}.amazonaws.com"
-        ECR_REPO     = "marketmap-backend"
-        S3_BUCKET    = "marketmap-jar-artifacts"
-        AWS_CREDS    = "aws-jenkins"  // Jenkins AWS credential ID
+        AWS_REGION    = "eu-north-1"
+        ECR_REGISTRY  = "969258966375.dkr.ecr.${AWS_REGION}.amazonaws.com"
+        ECR_REPO      = "marketmap-backend"
+        S3_BUCKET     = "marketmap-jar-artifacts"
+        AWS_CREDS     = "aws-jenkins"
     }
 
     stages {
+
         stage('Show Selections') {
             steps {
                 script {
@@ -120,26 +121,29 @@ pipeline {
                         echo "Logging in to AWS ECR..."
                         bat """
                             aws ecr get-login-password --region ${AWS_REGION} ^
-                              | docker login --username AWS --password-stdin ${ECR_REGISTRY}
+                                | docker login --username AWS --password-stdin ${ECR_REGISTRY}
                         """
-                        echo "Pushing only images from DockerBuildInfo.txt..."
+
+                        echo "Cleaning DockerBuildInfo.txt..."
                         bat """
-                            setlocal enabledelayedexpansion
-                            for /F "usebackq delims=" %%i in (`findstr /V "#" "${DOCKER_MANIFEST}"`) do (
-                                set "IMG=%%i"
-                                set "ECR_TAG=!IMG::=-!"
-                                echo Tagging and pushing %%i as ${ECR_REGISTRY}/${ECR_REPO}:!ECR_TAG!
-                                docker tag %%i ${ECR_REGISTRY}/${ECR_REPO}:!ECR_TAG!
-                                docker push ${ECR_REGISTRY}/${ECR_REPO}:!ECR_TAG!
+                            findstr /V "#" "${DOCKER_MANIFEST}" > "${DOCKER_MANIFEST}.clean"
+                            move /Y "${DOCKER_MANIFEST}.clean" "${DOCKER_MANIFEST}"
+                        """
+
+                        echo "Pushing valid images from DockerBuildInfo.txt..."
+                        bat """
+                            for /F "usebackq delims=" %%i in ("${DOCKER_MANIFEST}") do (
+                                set "IMAGE=%%i"
+                                set "TAG=!IMAGE::=-!"
+                                echo Tagging and pushing !IMAGE! -> ${ECR_REGISTRY}/${ECR_REPO}:!TAG!
+                                docker tag !IMAGE! ${ECR_REGISTRY}/${ECR_REPO}:!TAG!
+                                docker push ${ECR_REGISTRY}/${ECR_REPO}:!TAG!
                             )
-                            endlocal
                         """
                     }
                 }
             }
         }
-
-
 
         stage('Upload JARs to S3') {
             when { expression { params.UPLOAD_JARS } }
@@ -148,7 +152,8 @@ pipeline {
                     script {
                         echo "Uploading JAR files to S3..."
                         bat """
-                            aws s3 cp "${RELEASE_DIR}" s3://${S3_BUCKET}/${params.RELEASE}/ --recursive --exclude "*" --include "*.jar"
+                            aws s3 cp "${RELEASE_DIR}" s3://${S3_BUCKET}/${params.RELEASE}/ --recursive ^
+                                --exclude "*" --include "*.jar"
                         """
                     }
                 }
@@ -160,7 +165,10 @@ pipeline {
                 script {
                     echo "Listing Docker images for release ${params.RELEASE}..."
                     bat """
-                        docker images | findstr ${params.RELEASE} || echo No images found.
+                        docker images | findstr ${params.RELEASE} || (
+                          echo No images found.
+                          exit /b 0
+                        )
                     """
                 }
             }

@@ -122,25 +122,19 @@ pipeline {
                             aws ecr get-login-password --region ${AWS_REGION} ^
                               | docker login --username AWS --password-stdin ${ECR_REGISTRY}
                         """
-                        echo "Pushing only those images listed in DockerBuildInfo.txt..."
+                        echo "Pushing only images from DockerBuildInfo.txt..."
                         bat """
-                            setlocal EnableDelayedExpansion
-                            for /F "usebackq delims=" %%i in ("${DOCKER_MANIFEST}") do (
-                              echo %%i | findstr "#" >nul || (
-                                set IMAGE=%%i
-                                set TAG=%%i
-                                set TAG=!TAG::=-!
-                                echo Tagging and pushing !IMAGE! -> ${ECR_REGISTRY}/${ECR_REPO}:!TAG!
-                                docker tag !IMAGE! ${ECR_REGISTRY}/${ECR_REPO}:!TAG!
-                                docker push ${ECR_REGISTRY}/${ECR_REPO}:!TAG!
-                              )
+                            for /F "usebackq delims=" %%i in (`findstr /V "#" "${DOCKER_MANIFEST}"`) do (
+                              echo Tagging and pushing %%i to ${ECR_REGISTRY}/${ECR_REPO}:%%i
+                              docker tag %%i ${ECR_REGISTRY}/${ECR_REPO}:%%i
+                              docker push ${ECR_REGISTRY}/${ECR_REPO}:%%i
                             )
-                            endlocal
                         """
                     }
                 }
             }
         }
+
 
         stage('Upload JARs to S3') {
             when { expression { params.UPLOAD_JARS } }

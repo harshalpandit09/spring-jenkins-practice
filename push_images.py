@@ -30,7 +30,7 @@ for line in lines:
     service, version = line.split(":", 1)
     service = service.strip()
     version = version.strip()
-    image_tag = f"{ECR_REGISTRY}/{ECR_REPO}/{service}:{version}"
+    image_tag = f"{ECR_REGISTRY}/{ECR_REPO}/{service}-{version}"
 
     print(f"Tagging and pushing {service}:{version} -> {image_tag}")
     run_command(f"docker tag {service}:{version} {image_tag}")

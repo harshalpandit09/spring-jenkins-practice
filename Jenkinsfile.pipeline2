@@ -5,26 +5,25 @@ pipeline {
         booleanParam(name: 'BUILD_SERVICES',   defaultValue: false, description: 'Build Docker image for Backend-WebAPI (Services)')
         booleanParam(name: 'BUILD_SQL',        defaultValue: false, description: 'Build Docker image for SQL-Service')
         booleanParam(name: 'BUILD_METADATA',   defaultValue: false, description: 'Build Docker image for Metadata-Service')
-        string(      name: 'RELEASE',         defaultValue: '25.2.0',     description: 'Release version (e.g., 25.2.0)')
-        booleanParam(name: 'PUSH_TO_REGISTRY',defaultValue: false, description: 'Push built Docker images to AWS ECR')
-        booleanParam(name: 'UPLOAD_JARS',     defaultValue: false, description: 'Upload JARs to S3')
+        string(      name: 'RELEASE',          defaultValue: '25.2.0', description: 'Release version (e.g., 25.2.0)')
+        booleanParam(name: 'PUSH_TO_REGISTRY', defaultValue: false, description: 'Push built Docker images to AWS ECR')
+        booleanParam(name: 'UPLOAD_JARS',      defaultValue: false, description: 'Upload JARs to S3')
     }
 
     environment {
-        BASE_DIR       = "D:\\MarketMapBuilds"
-        RELEASE_DIR    = "${BASE_DIR}\\${params.RELEASE}\\CombinedBuild"
-        DOCKER_DIR     = "${WORKSPACE}\\docker"
-        DOCKER_MANIFEST= "${BASE_DIR}\\${params.RELEASE}\\DockerBuildInfo.txt"
+        BASE_DIR        = "D:\\MarketMapBuilds"
+        RELEASE_DIR     = "${BASE_DIR}\\${params.RELEASE}\\CombinedBuild"
+        DOCKER_DIR      = "${WORKSPACE}\\docker"
+        DOCKER_MANIFEST = "${BASE_DIR}\\${params.RELEASE}\\DockerBuildInfo.txt"
 
-        AWS_REGION     = "eu-north-1"
-        ECR_REGISTRY   = "969258966375.dkr.ecr.${AWS_REGION}.amazonaws.com"
-        ECR_REPO       = "marketmap-backend"
-        S3_BUCKET      = "marketmap-jar-artifacts"
-        AWS_CREDS      = "aws-jenkins"  // the Jenkins credential ID you created
+        AWS_REGION   = "eu-north-1"
+        ECR_REGISTRY = "969258966375.dkr.ecr.${AWS_REGION}.amazonaws.com"
+        ECR_REPO     = "marketmap-backend"
+        S3_BUCKET    = "marketmap-jar-artifacts"
+        AWS_CREDS    = "aws-jenkins"  // Jenkins AWS credential ID
     }
 
     stages {
-
         stage('Show Selections') {
             steps {
                 script {
@@ -53,7 +52,7 @@ pipeline {
                     }
                     bat """
                         echo # Docker Build Manifest for RELEASE ${params.RELEASE} > "${DOCKER_MANIFEST}"
-                        echo # Last Updated: %DATE% %TIME%        >> "${DOCKER_MANIFEST}"
+                        echo # Last Updated: %DATE% %TIME% >> "${DOCKER_MANIFEST}"
                     """
                 }
             }
@@ -123,14 +122,15 @@ pipeline {
                             aws ecr get-login-password --region ${AWS_REGION} ^
                               | docker login --username AWS --password-stdin ${ECR_REGISTRY}
                         """
-                        echo "Pushing only those images listed in DockerBuildInfo.txt…"
+                        echo "Pushing only those images listed in DockerBuildInfo.txt..."
                         bat """
-                            setlocal enabledelayedexpansion
+                            setlocal EnableDelayedExpansion
                             for /F "usebackq delims=" %%i in ("${DOCKER_MANIFEST}") do (
                               echo %%i | findstr "#" >nul || (
-                                set "IMAGE=%%i"
-                                set "TAG=!IMAGE::=-!"
-                                echo Tagging and pushing !IMAGE! → ${ECR_REGISTRY}/${ECR_REPO}:!TAG!
+                                set IMAGE=%%i
+                                set TAG=%%i
+                                set TAG=!TAG::=-!
+                                echo Tagging and pushing !IMAGE! -> ${ECR_REGISTRY}/${ECR_REPO}:!TAG!
                                 docker tag !IMAGE! ${ECR_REGISTRY}/${ECR_REPO}:!TAG!
                                 docker push ${ECR_REGISTRY}/${ECR_REPO}:!TAG!
                               )
@@ -147,10 +147,9 @@ pipeline {
             steps {
                 withAWS(region: "${AWS_REGION}", credentials: "${AWS_CREDS}") {
                     script {
-                        echo "Uploading JAR files to S3…"
+                        echo "Uploading JAR files to S3..."
                         bat """
-                            aws s3 cp "${RELEASE_DIR}" s3://${S3_BUCKET}/${params.RELEASE}/ --recursive \\
-                                --exclude "*" --include "*.jar"
+                            aws s3 cp "${RELEASE_DIR}" s3://${S3_BUCKET}/${params.RELEASE}/ --recursive --exclude "*" --include "*.jar"
                         """
                     }
                 }
@@ -162,10 +161,7 @@ pipeline {
                 script {
                     echo "Listing Docker images for release ${params.RELEASE}..."
                     bat """
-                        docker images | findstr ${params.RELEASE} || (
-                          echo No images found.
-                          exit /b 0
-                        )
+                        docker images | findstr ${params.RELEASE} || echo No images found.
                     """
                 }
             }

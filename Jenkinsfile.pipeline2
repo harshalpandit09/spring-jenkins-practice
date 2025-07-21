@@ -2,12 +2,12 @@ pipeline {
     agent any
 
     parameters {
-        booleanParam(name: 'BUILD_SERVICES', defaultValue: false, description: 'Build Docker image for Backend-WebAPI (Services)')
-        booleanParam(name: 'BUILD_SQL',      defaultValue: false, description: 'Build Docker image for SQL-Service')
-        booleanParam(name: 'BUILD_METADATA', defaultValue: false, description: 'Build Docker image for Metadata-Service')
-        string      (name: 'RELEASE',        defaultValue: '25.2.0', description: 'Release version (e.g., 25.2.0)')
-        booleanParam(name: 'PUSH_TO_REGISTRY', defaultValue: false, description: 'Push built Docker images to AWS ECR')
-        booleanParam(name: 'UPLOAD_JARS',      defaultValue: false, description: 'Upload JARs to S3')
+        booleanParam(name: 'BUILD_SERVICES',   defaultValue: false, description: 'Build Docker image for Backend-WebAPI (Services)')
+        booleanParam(name: 'BUILD_SQL',        defaultValue: false, description: 'Build Docker image for SQL-Service')
+        booleanParam(name: 'BUILD_METADATA',   defaultValue: false, description: 'Build Docker image for Metadata-Service')
+        string(      name: 'RELEASE',         defaultValue: '25.2.0',     description: 'Release version (e.g., 25.2.0)')
+        booleanParam(name: 'PUSH_TO_REGISTRY',defaultValue: false, description: 'Push built Docker images to AWS ECR')
+        booleanParam(name: 'UPLOAD_JARS',     defaultValue: false, description: 'Upload JARs to S3')
     }
 
     environment {
@@ -17,23 +17,24 @@ pipeline {
         DOCKER_MANIFEST= "${BASE_DIR}\\${params.RELEASE}\\DockerBuildInfo.txt"
 
         AWS_REGION     = "eu-north-1"
-        ECR_REGISTRY   = "969258966375.dkr.ecr.eu-north-1.amazonaws.com"
+        ECR_REGISTRY   = "969258966375.dkr.ecr.${AWS_REGION}.amazonaws.com"
         ECR_REPO       = "marketmap-backend"
         S3_BUCKET      = "marketmap-jar-artifacts"
-        AWS_CREDS      = "aws-jenkins"
+        AWS_CREDS      = "aws-jenkins"  // the Jenkins credential ID you created
     }
 
     stages {
+
         stage('Show Selections') {
             steps {
                 script {
                     echo "========= Pipeline 2 Configuration ========="
-                    echo "Build Services  : ${params.BUILD_SERVICES}"
-                    echo "Build SQL       : ${params.BUILD_SQL}"
-                    echo "Build Metadata  : ${params.BUILD_METADATA}"
-                    echo "Release Version : ${params.RELEASE}"
-                    echo "Push to ECR     : ${params.PUSH_TO_REGISTRY}"
-                    echo "Upload JARs     : ${params.UPLOAD_JARS}"
+                    echo "Build Services   : ${params.BUILD_SERVICES}"
+                    echo "Build SQL        : ${params.BUILD_SQL}"
+                    echo "Build Metadata   : ${params.BUILD_METADATA}"
+                    echo "Release Version  : ${params.RELEASE}"
+                    echo "Push to ECR      : ${params.PUSH_TO_REGISTRY}"
+                    echo "Upload JARs      : ${params.UPLOAD_JARS}"
                     echo "============================================"
                 }
             }
@@ -43,7 +44,7 @@ pipeline {
             steps {
                 script {
                     if (!fileExists(RELEASE_DIR)) {
-                        error "❌ Release folder does not exist: ${RELEASE_DIR}. Please run Pipeline 1 first."
+                        error("❌ Release folder does not exist: ${RELEASE_DIR}. Please run Pipeline 1 first.")
                     }
                     if (!params.BUILD_SERVICES && !params.BUILD_SQL && !params.BUILD_METADATA) {
                         echo "⚠ No components selected. Dry run only."
@@ -52,7 +53,7 @@ pipeline {
                     }
                     bat """
                         echo # Docker Build Manifest for RELEASE ${params.RELEASE} > "${DOCKER_MANIFEST}"
-                        echo # Last Updated: %DATE% %TIME%         >> "${DOCKER_MANIFEST}"
+                        echo # Last Updated: %DATE% %TIME%        >> "${DOCKER_MANIFEST}"
                     """
                 }
             }
@@ -62,16 +63,15 @@ pipeline {
             when { expression { params.BUILD_SERVICES } }
             steps {
                 script {
-                    bat "dir /B \"${RELEASE_DIR}\\backend-webapi.*.jar\" > jar_name.txt"
-                    def jarFile = readFile('jar_name.txt').trim()
-                    def tag     = jarFile.replace('backend-webapi.', '').replace('.jar','')
+                    bat "dir /b \"${RELEASE_DIR}\\backend-webapi.*.jar\" > jar_name.txt"
+                    def jar = readFile('jar_name.txt').trim()
+                    def tag = jar.replace('backend-webapi.', '').replace('.jar','')
                     echo "Using tag: ${tag} for backend-webapi"
-
                     bat """
-                        copy "${RELEASE_DIR}\\${jarFile}" "${DOCKER_DIR}\\backend-webapi\\backend-webapi.jar" /Y
+                        copy "${RELEASE_DIR}\\${jar}" "${DOCKER_DIR}\\backend-webapi\\backend-webapi.jar" /Y
                         cd "${DOCKER_DIR}\\backend-webapi"
                         docker build -t backend-webapi:${tag} .
-                        echo backend-webapi:${tag}>> "${DOCKER_MANIFEST}"
+                        echo backend-webapi:${tag} >> "${DOCKER_MANIFEST}"
                     """
                 }
             }
@@ -81,16 +81,15 @@ pipeline {
             when { expression { params.BUILD_SQL } }
             steps {
                 script {
-                    bat "dir /B \"${RELEASE_DIR}\\sql-service.*.jar\" > jar_name.txt"
-                    def jarFile = readFile('jar_name.txt').trim()
-                    def tag     = jarFile.replace('sql-service.', '').replace('.jar','')
+                    bat "dir /b \"${RELEASE_DIR}\\sql-service.*.jar\" > jar_name.txt"
+                    def jar = readFile('jar_name.txt').trim()
+                    def tag = jar.replace('sql-service.', '').replace('.jar','')
                     echo "Using tag: ${tag} for sql-service"
-
                     bat """
-                        copy "${RELEASE_DIR}\\${jarFile}" "${DOCKER_DIR}\\sql-service\\sql-service.jar" /Y
+                        copy "${RELEASE_DIR}\\${jar}" "${DOCKER_DIR}\\sql-service\\sql-service.jar" /Y
                         cd "${DOCKER_DIR}\\sql-service"
                         docker build -t sql-service:${tag} .
-                        echo sql-service:${tag}>> "${DOCKER_MANIFEST}"
+                        echo sql-service:${tag} >> "${DOCKER_MANIFEST}"
                     """
                 }
             }
@@ -100,16 +99,15 @@ pipeline {
             when { expression { params.BUILD_METADATA } }
             steps {
                 script {
-                    bat "dir /B \"${RELEASE_DIR}\\metadata-service.*.jar\" > jar_name.txt"
-                    def jarFile = readFile('jar_name.txt').trim()
-                    def tag     = jarFile.replace('metadata-service.', '').replace('.jar','')
+                    bat "dir /b \"${RELEASE_DIR}\\metadata-service.*.jar\" > jar_name.txt"
+                    def jar = readFile('jar_name.txt').trim()
+                    def tag = jar.replace('metadata-service.', '').replace('.jar','')
                     echo "Using tag: ${tag} for metadata-service"
-
                     bat """
-                        copy "${RELEASE_DIR}\\${jarFile}" "${DOCKER_DIR}\\metadata-service\\metadata-service.jar" /Y
+                        copy "${RELEASE_DIR}\\${jar}" "${DOCKER_DIR}\\metadata-service\\metadata-service.jar" /Y
                         cd "${DOCKER_DIR}\\metadata-service"
                         docker build -t metadata-service:${tag} .
-                        echo metadata-service:${tag}>> "${DOCKER_MANIFEST}"
+                        echo metadata-service:${tag} >> "${DOCKER_MANIFEST}"
                     """
                 }
             }
@@ -120,17 +118,15 @@ pipeline {
             steps {
                 withAWS(region: "${AWS_REGION}", credentials: "${AWS_CREDS}") {
                     script {
-                        echo "Logging in to AWS ECR..."
+                        echo "Logging in to AWS ECR..."
                         bat """
                             aws ecr get-login-password --region ${AWS_REGION} ^
                               | docker login --username AWS --password-stdin ${ECR_REGISTRY}
                         """
-                        echo "Pushing only those images listed in DockerBuildInfo.txt..."
-
-                        // *** THIS BLOCK IS THE FIXED PART ***
+                        echo "Pushing only those images listed in DockerBuildInfo.txt…"
                         bat """
                             setlocal enabledelayedexpansion
-                            for /f "usebackq delims=" %%i in ("${DOCKER_MANIFEST}") do (
+                            for /F "usebackq delims=" %%i in ("${DOCKER_MANIFEST}") do (
                               echo %%i | findstr "#" >nul || (
                                 set "IMAGE=%%i"
                                 set "TAG=!IMAGE::=-!"
@@ -151,9 +147,10 @@ pipeline {
             steps {
                 withAWS(region: "${AWS_REGION}", credentials: "${AWS_CREDS}") {
                     script {
-                        echo "Uploading JARs to S3..."
+                        echo "Uploading JAR files to S3…"
                         bat """
-                            aws s3 cp "${RELEASE_DIR}" s3://${S3_BUCKET}/${params.RELEASE}/ --recursive --exclude "*" --include "*.jar"
+                            aws s3 cp "${RELEASE_DIR}" s3://${S3_BUCKET}/${params.RELEASE}/ --recursive \\
+                                --exclude "*" --include "*.jar"
                         """
                     }
                 }
@@ -162,20 +159,27 @@ pipeline {
 
         stage('List Built Docker Images') {
             steps {
-                echo "Listing Docker images for ${params.RELEASE}..."
-                bat 'docker images | findstr ${params.RELEASE} || echo No images found.'
+                script {
+                    echo "Listing Docker images for release ${params.RELEASE}..."
+                    bat """
+                        docker images | findstr ${params.RELEASE} || (
+                          echo No images found.
+                          exit /b 0
+                        )
+                    """
+                }
             }
         }
 
         stage('Summary') {
             steps {
-                echo "✅ Pipeline2 completed successfully for Release ${params.RELEASE}."
-                echo "Manifest: ${DOCKER_MANIFEST}"
+                echo "✅ Pipeline 2 completed successfully for Release: ${params.RELEASE}."
+                echo "Docker build manifest stored at: ${DOCKER_MANIFEST}"
             }
         }
     }
 
     post {
-        failure { echo "❌ Pipeline2 failed." }
+        failure { echo "❌ Pipeline 2 failed." }
     }
 }

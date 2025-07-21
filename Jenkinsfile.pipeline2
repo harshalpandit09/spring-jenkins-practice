@@ -121,33 +121,25 @@ pipeline {
                         echo "Logging in to AWS ECR..."
                         bat """
                             aws ecr get-login-password --region ${AWS_REGION} ^
-                                | docker login --username AWS --password-stdin ${ECR_REGISTRY}
-                        """
-
-                        echo "Cleaning DockerBuildInfo.txt..."
-                        bat """
-                            findstr /V "#" "${DOCKER_MANIFEST}" > "${DOCKER_MANIFEST}.clean"
-                            move /Y "${DOCKER_MANIFEST}.clean" "${DOCKER_MANIFEST}"
+                              | docker login --username AWS --password-stdin ${ECR_REGISTRY}
                         """
 
                         echo "Pushing valid images from DockerBuildInfo.txt..."
                         bat """
-                            @echo off
-                            setlocal enabledelayedexpansion
-                            for /F "usebackq delims=" %%i in ("${DOCKER_MANIFEST}") do (
-                                set IMAGE=%%i
-                                set IMAGE=!IMAGE: =!
-                                set TAG=!IMAGE::=-!
-                                echo Tagging and pushing !IMAGE! -> ${ECR_REGISTRY}/${ECR_REPO}:!TAG!
-                                docker tag !IMAGE! ${ECR_REGISTRY}/${ECR_REPO}:!TAG!
-                                docker push ${ECR_REGISTRY}/${ECR_REPO}:!TAG!
+                            for /F "usebackq tokens=1,2 delims=:" %%i in (`findstr /V "#" "${DOCKER_MANIFEST}"`) do (
+                                set SERVICE=%%i
+                                set VERSION=%%j
+                                set VERSION=!VERSION: =!
+                                echo Tagging and pushing !SERVICE!:!VERSION!
+                                docker tag !SERVICE!:!VERSION! ${ECR_REGISTRY}/${ECR_REPO}/!SERVICE!:!VERSION!
+                                docker push ${ECR_REGISTRY}/${ECR_REPO}/!SERVICE!:!VERSION!
                             )
-                            endlocal
                         """
                     }
                 }
             }
         }
+
 
         stage('Upload JARs to S3') {
             when { expression { params.UPLOAD_JARS } }

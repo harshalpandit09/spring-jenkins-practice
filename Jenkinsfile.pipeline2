@@ -150,8 +150,8 @@ pipeline {
                         bat """
                             for /f %%i in ('docker images --format "{{.Repository}}:{{.Tag}}" ^| findstr ${params.RELEASE}') do (
                                 for /f "tokens=1,2 delims=:" %%a in ("%%i") do (
-                                    docker tag %%i ${ECR_REGISTRY}/${ECR_REPO}/%%a:%%b
-                                    docker push ${ECR_REGISTRY}/${ECR_REPO}/%%a:%%b
+                                    docker tag %%i ${ECR_REGISTRY}/${ECR_REPO}:%%a-%%b
+                                    docker push ${ECR_REGISTRY}/${ECR_REPO}:%%a-%%b
                                 )
                             )
                         """

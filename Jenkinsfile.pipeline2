@@ -124,16 +124,21 @@ pipeline {
                         """
                         echo "Pushing only images from DockerBuildInfo.txt..."
                         bat """
+                            setlocal enabledelayedexpansion
                             for /F "usebackq delims=" %%i in (`findstr /V "#" "${DOCKER_MANIFEST}"`) do (
-                              echo Tagging and pushing %%i to ${ECR_REGISTRY}/${ECR_REPO}:%%i
-                              docker tag %%i ${ECR_REGISTRY}/${ECR_REPO}:%%i
-                              docker push ${ECR_REGISTRY}/${ECR_REPO}:%%i
+                                set "IMG=%%i"
+                                set "ECR_TAG=!IMG::=-!"
+                                echo Tagging and pushing %%i as ${ECR_REGISTRY}/${ECR_REPO}:!ECR_TAG!
+                                docker tag %%i ${ECR_REGISTRY}/${ECR_REPO}:!ECR_TAG!
+                                docker push ${ECR_REGISTRY}/${ECR_REPO}:!ECR_TAG!
                             )
+                            endlocal
                         """
                     }
                 }
             }
         }
+
 
 
         stage('Upload JARs to S3') {

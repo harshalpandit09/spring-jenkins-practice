@@ -132,13 +132,17 @@ pipeline {
 
                         echo "Pushing valid images from DockerBuildInfo.txt..."
                         bat """
+                            @echo off
+                            setlocal enabledelayedexpansion
                             for /F "usebackq delims=" %%i in ("${DOCKER_MANIFEST}") do (
-                                set "IMAGE=%%i"
-                                set "TAG=!IMAGE::=-!"
+                                set IMAGE=%%i
+                                set IMAGE=!IMAGE: =!
+                                set TAG=!IMAGE::=-!
                                 echo Tagging and pushing !IMAGE! -> ${ECR_REGISTRY}/${ECR_REPO}:!TAG!
                                 docker tag !IMAGE! ${ECR_REGISTRY}/${ECR_REPO}:!TAG!
                                 docker push ${ECR_REGISTRY}/${ECR_REPO}:!TAG!
                             )
+                            endlocal
                         """
                     }
                 }

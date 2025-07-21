@@ -1,14 +1,5 @@
-import subprocess
 import sys
-import os
-
-if len(sys.argv) != 4:
-    print("Usage: python push_images.py <DOCKER_MANIFEST> <ECR_REGISTRY> <ECR_REPO>")
-    sys.exit(1)
-
-DOCKER_MANIFEST = sys.argv[1]
-ECR_REGISTRY = sys.argv[2]
-ECR_REPO = sys.argv[3]
+import subprocess
 
 def run_command(cmd):
     print(f"Running: {cmd}")
@@ -16,22 +7,34 @@ def run_command(cmd):
     if result.returncode != 0:
         raise RuntimeError(f"Command failed: {cmd}")
 
-if not os.path.exists(DOCKER_MANIFEST):
-    print(f"Error: Docker manifest file not found at {DOCKER_MANIFEST}")
-    sys.exit(1)
+def push_images(manifest_path, ecr_registry, repository):
+    with open(manifest_path, 'r') as f:
+        lines = f.readlines()
 
-with open(DOCKER_MANIFEST, "r") as f:
-    lines = [line.strip() for line in f if line.strip() and not line.startswith("#")]
+    for line in lines:
+        line = line.strip()
+        if line.startswith("#") or not line:
+            continue  # Skip comments or empty lines
 
-for line in lines:
-    if ":" not in line:
-        print(f"Skipping invalid line: {line}")
-        continue
-    service, version = line.split(":", 1)
-    service = service.strip()
-    version = version.strip()
-    image_tag = f"{ECR_REGISTRY}/{ECR_REPO}/{service}-{version}"
+        if ":" not in line:
+            print(f"Skipping invalid line: {line}")
+            continue
 
-    print(f"Tagging and pushing {service}:{version} -> {image_tag}")
-    run_command(f"docker tag {service}:{version} {image_tag}")
-    run_command(f"docker push {image_tag}")
+        service, version = line.split(":")
+        local_tag = f"{service}:{version}"
+        ecr_tag = f"{ecr_registry}/{repository}:{service}-{version}"
+
+        print(f"Tagging and pushing {local_tag} -> {ecr_tag}")
+        run_command(f"docker tag {local_tag} {ecr_tag}")
+        run_command(f"docker push {ecr_tag}")
+
+if __name__ == "__main__":
+    if len(sys.argv) != 4:
+        print("Usage: python push_images.py <manifest_file> <ecr_registry> <repository>")
+        sys.exit(1)
+
+    manifest_path = sys.argv[1]
+    ecr_registry = sys.argv[2]
+    repository = sys.argv[3]
+
+    push_images(manifest_path, ecr_registry, repository)

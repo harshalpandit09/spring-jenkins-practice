@@ -55,22 +55,25 @@ pipeline {
         }
 
         stage('Build Docker Image - Services') {
-            when { expression { params.BUILD_SERVICES } }
-            steps {
-                script {
-                    def jarName = bat(script: "dir /b \"${BUILD_DIR}\\backend-webapi.*.jar\"", returnStdout: true).trim()
-                    def tag = jarName.replace("backend-webapi.", "").replace(".jar", "")
-                    echo "Using tag: ${tag} for backend-webapi"
+    when { expression { params.BUILD_SERVICES } }
+    steps {
+        script {
+            def jarName = bat(
+                script: "for /f %i in ('dir /b \"${BUILD_DIR}\\backend-webapi.*.jar\"') do @echo %i",
+                returnStdout: true
+            ).trim()
+            def tag = jarName.replace("backend-webapi.", "").replace(".jar", "")
+            echo "Using tag: ${tag} for backend-webapi"
 
-                    bat """
-                    copy "${BUILD_DIR}\\${jarName}" "docker\\backend-webapi\\backend-webapi.jar" /Y
-                    cd docker\\backend-webapi
-                    docker build -t backend-webapi:${tag} .
-                    echo backend-webapi:${tag} >> "${DOCKER_INFO}"
-                    """
-                }
-            }
+            bat """
+            copy "${BUILD_DIR}\\${jarName}" "docker\\backend-webapi\\backend-webapi.jar" /Y
+            cd docker\\backend-webapi
+            docker build -t backend-webapi:${tag} .
+            echo backend-webapi:${tag} >> "${DOCKER_INFO}"
+            """
         }
+    }
+}
 
         stage('Build Docker Image - SQL') {
             when { expression { params.BUILD_SQL } }

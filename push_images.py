@@ -23,17 +23,17 @@ def main():
         if line.startswith("#") or not line.strip():
             continue
 
+        # Split the service and tag
         service, tag = line.strip().split(":")
         service = service.strip()
         tag = tag.strip()
 
-        # Map each service to its ECR repo
-        ecr_repo_name = service
-        ecr_image = f"{account_id}.dkr.ecr.{region}.amazonaws.com/{ecr_repo_name}:{tag}"
+        # Construct ECR repo URL
+        ecr_repo = f"{account_id}.dkr.ecr.{region}.amazonaws.com/{service}:{tag}"
+        print(f"Tagging and pushing {service}:{tag} -> {ecr_repo}")
 
-        print(f"Tagging and pushing {service}:{tag} -> {ecr_image}")
-        run_command(f"docker tag {service}:{tag} {ecr_image}")
-        run_command(f"docker push {ecr_image}")
+        run_command(f"docker tag {service}:{tag} {ecr_repo}")
+        run_command(f"docker push {ecr_repo}")
 
 if __name__ == "__main__":
     main()

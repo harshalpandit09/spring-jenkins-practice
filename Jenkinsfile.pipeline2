@@ -1,37 +1,40 @@
 pipeline {
     agent any
 
+    parameters {
+        string(name: 'RELEASE_VERSION', defaultValue: '25.2.0', description: 'Release Version')
+    }
+
     environment {
-        BUILD_DIR = "D:\\MarketMapBuilds\\25.2.0"
+        BUILD_DIR = "D:\\MarketMapBuilds\\${params.RELEASE_VERSION}"
         DOCKER_INFO = "${BUILD_DIR}\\DockerBuildInfo.txt"
-        AWS_ACCOUNT_ID = "969258966375"
-        REGION = "eu-north-1"
     }
 
     stages {
-        stage('Prepare Docker Image') {
+        stage('Build Docker Image - Services') {
             steps {
                 script {
-                    def jarName = bat(script: "dir /b \"${BUILD_DIR}\\CombinedBuild\\backend-webapi.*.jar\"", returnStdout: true).trim()
+                    // Find the JAR file
+                    def jarName = bat(script: "dir /b \"${BUILD_DIR}\\CombinedBuild\\backend-webapi.*.jar\"", returnStdout: true)
+                                    .trim()
+                                    .split("\r?\n")[0]
+
+                    if (!jarName || jarName == "") {
+                        error "No backend-webapi JAR found in ${BUILD_DIR}\\CombinedBuild!"
+                    }
+
+                    echo "Found JAR: ${jarName}"
+
+                    // Extract tag from filename
                     def tag = jarName.replace("backend-webapi.", "").replace(".jar", "")
                     echo "Using tag: ${tag} for backend-webapi"
 
+                    // Copy JAR and build Docker image
                     bat """
                     copy "${BUILD_DIR}\\CombinedBuild\\${jarName}" "docker\\backend-webapi\\backend-webapi.jar" /Y
                     cd docker\\backend-webapi
                     docker build -t backend-webapi:${tag} .
-                    echo backend-webapi:${tag} > "${DOCKER_INFO}"
-                    """
-                }
-            }
-        }
-
-        stage('Push to ECR') {
-            steps {
-                withAWS(region: "${REGION}", credentials: 'aws-jenkins') {
-                    bat """
-                    aws ecr get-login-password --region ${REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com
-                    python push_images.py "${DOCKER_INFO}" "${AWS_ACCOUNT_ID}"
+                    echo backend-webapi:${tag} >> "${DOCKER_INFO}"
                     """
                 }
             }
@@ -40,10 +43,7 @@ pipeline {
 
     post {
         failure {
-            echo "❌ Test push to ECR failed."
-        }
-        success {
-            echo "✅ Test push to ECR succeeded!"
+            echo "❌ Stage failed."
         }
     }
 }

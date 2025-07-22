@@ -17,16 +17,13 @@ pipeline {
                     echo "Checking files in ${BUILD_DIR}\\CombinedBuild..."
                     bat "dir \"${BUILD_DIR}\\CombinedBuild\""
 
-                    // Fetch JAR name with proper batch escaping
-                    def jarName = bat(
-                        script: "for %%i in (${BUILD_DIR}\\CombinedBuild\\backend-webapi.*.jar) do @echo %%~nxi",
-                        returnStdout: true
-                    ).trim()
+                    // Use batch file to find JAR name
+                    bat """
+                    @echo off
+                    for %%i in (${BUILD_DIR}\\CombinedBuild\\backend-webapi.*.jar) do echo %%~nxi > jar_name.txt
+                    """
 
-                    if (!jarName || jarName == "") {
-                        error "No backend-webapi JAR found in ${BUILD_DIR}\\CombinedBuild!"
-                    }
-
+                    def jarName = readFile('jar_name.txt').trim()
                     echo "Found JAR: ${jarName}"
 
                     def tag = jarName.replace("backend-webapi.", "").replace(".jar", "")

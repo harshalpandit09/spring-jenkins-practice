@@ -2,16 +2,21 @@ pipeline {
     agent any
     environment {
         BUILD_DIR = "D:\\MarketMapBuilds\\25.2.0"
+        DOCKER_INFO = "${BUILD_DIR}\\DockerBuildInfo.txt"
     }
     stages {
-        stage('Debug & Build Services') {
+        stage('Build Docker Image - Services') {
             steps {
                 script {
-                    // List all files in CombinedBuild
+                    // List all files for debug
                     bat "dir \"${BUILD_DIR}\\CombinedBuild\""
 
-                    // Try to get backend-webapi jar
-                    def jarName = bat(script: "for /F %i in ('dir /b \"${BUILD_DIR}\\CombinedBuild\\backend-webapi.*.jar\"') do @echo %i", returnStdout: true).trim()
+                    // Get backend-webapi JAR filename
+                    def jarName = bat(
+                        script: "for /F \"delims=\" %%i in ('dir /b \"${BUILD_DIR}\\CombinedBuild\\backend-webapi.*.jar\"') do @echo %%i",
+                        returnStdout: true
+                    ).trim()
+                    
                     echo "DEBUG: jarName found: '${jarName}'"
 
                     if (!jarName) {
@@ -21,10 +26,12 @@ pipeline {
                     def tag = jarName.replace("backend-webapi.", "").replace(".jar", "")
                     echo "Using tag: ${tag} for backend-webapi"
 
+                    // Copy JAR and build Docker image
                     bat """
                     copy "${BUILD_DIR}\\CombinedBuild\\${jarName}" "docker\\backend-webapi\\backend-webapi.jar" /Y
                     cd docker\\backend-webapi
                     docker build -t backend-webapi:${tag} .
+                    echo backend-webapi:${tag} >> "${DOCKER_INFO}"
                     """
                 }
             }

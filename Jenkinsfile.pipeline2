@@ -58,8 +58,8 @@ pipeline {
     when { expression { params.BUILD_SERVICES } }
     steps {
         script {
-            def jarName = bat(
-                script: "powershell -Command \"(Get-ChildItem -Path '${BUILD_DIR}\\CombinedBuild' -Filter 'backend-webapi.*.jar' | Sort-Object LastWriteTime -Descending | Select-Object -First 1).Name\"",
+            def jarName = powershell(
+                script: "(Get-ChildItem -Path '${BUILD_DIR}\\CombinedBuild' -Filter 'backend-webapi.*.jar' | Sort-Object LastWriteTime -Descending | Select-Object -First 1).Name",
                 returnStdout: true
             ).trim()
 

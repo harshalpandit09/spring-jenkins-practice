@@ -1,5 +1,5 @@
-import sys
 import subprocess
+import sys
 
 def run_command(cmd):
     print(f"Running: {cmd}")
@@ -8,22 +8,32 @@ def run_command(cmd):
         raise RuntimeError(f"Command failed: {cmd}")
 
 def main():
-    if len(sys.argv) < 3:
-        print("Usage: push_images.py <DockerBuildInfo.txt> <ECR_BASE>")
+    if len(sys.argv) != 3:
+        print("Usage: python push_images.py <docker_build_info_path> <aws_account_id>")
         sys.exit(1)
 
-    manifest_file = sys.argv[1]
-    ecr_base = sys.argv[2]
+    docker_info_file = sys.argv[1]
+    account_id = sys.argv[2]
+    region = "eu-north-1"
 
-    with open(manifest_file, "r") as f:
-        lines = [line.strip() for line in f if line.strip() and not line.startswith("#")]
+    with open(docker_info_file, "r") as f:
+        lines = f.readlines()
 
     for line in lines:
-        service, tag = line.split(":")
-        ecr_repo = f"{ecr_base}/{service}:{tag}"
-        print(f"Tagging and pushing {service}:{tag} -> {ecr_repo}")
-        run_command(f"docker tag {service}:{tag} {ecr_repo}")
-        run_command(f"docker push {ecr_repo}")
+        if line.startswith("#") or not line.strip():
+            continue
+
+        service, tag = line.strip().split(":")
+        service = service.strip()
+        tag = tag.strip()
+
+        # Map each service to its ECR repo
+        ecr_repo_name = service
+        ecr_image = f"{account_id}.dkr.ecr.{region}.amazonaws.com/{ecr_repo_name}:{tag}"
+
+        print(f"Tagging and pushing {service}:{tag} -> {ecr_image}")
+        run_command(f"docker tag {service}:{tag} {ecr_image}")
+        run_command(f"docker push {ecr_image}")
 
 if __name__ == "__main__":
     main()

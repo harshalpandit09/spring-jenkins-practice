@@ -7,25 +7,21 @@ def run_command(cmd):
     if result.returncode != 0:
         raise RuntimeError(f"Command failed: {cmd}")
 
-if len(sys.argv) != 4:
-    print("Usage: python push_images.py <docker_manifest_file> <ecr_registry> <ecr_repository>")
-    sys.exit(1)
+def push_images(manifest_path, registry, repository):
+    with open(manifest_path, 'r') as f:
+        lines = [line.strip() for line in f if line.strip() and not line.startswith('#')]
 
-manifest_file = sys.argv[1]
-ecr_registry = sys.argv[2]
-ecr_repository = sys.argv[3]
+    for line in lines:
+        service, version = line.split(':')
+        image_tag = f"{registry}/{repository}/{service}:{version}"
+        print(f"Tagging and pushing {service}:{version} -> {image_tag}")
+        run_command(f"docker tag {service}:{version} {image_tag}")
+        run_command(f"docker push {image_tag}")
 
-with open(manifest_file, 'r') as f:
-    lines = f.readlines()
+if __name__ == "__main__":
+    if len(sys.argv) != 4:
+        print("Usage: push_images.py <manifest_path> <registry> <repository>")
+        sys.exit(1)
 
-for line in lines:
-    if line.startswith("#") or ":" not in line:
-        continue
-
-    service, version = line.strip().split(":")
-    full_tag = f"{service}-{version}"
-    image_tag = f"{ecr_registry}/{ecr_repository}:{full_tag}"
-
-    print(f"Tagging and pushing {service}:{version} -> {image_tag}")
-    run_command(f"docker tag {service}:{version} {image_tag}")
-    run_command(f"docker push {image_tag}")
+    manifest_path, registry, repository = sys.argv[1], sys.argv[2], sys.argv[3]
+    push_images(manifest_path, registry, repository)

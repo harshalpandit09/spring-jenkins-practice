@@ -1,29 +1,87 @@
 pipeline {
     agent any
 
+    parameters {
+        booleanParam(name: 'BUILD_SERVICES', defaultValue: true, description: 'Build backend-webapi Docker Image')
+        booleanParam(name: 'BUILD_SQL', defaultValue: true, description: 'Build sql-service Docker Image')
+        booleanParam(name: 'BUILD_METADATA', defaultValue: true, description: 'Build metadata-service Docker Image')
+        string(name: 'RELEASE_VERSION', defaultValue: '25.2.0', description: 'Release Version')
+        booleanParam(name: 'PUSH_TO_ECR', defaultValue: true, description: 'Push Docker Images to AWS ECR')
+        booleanParam(name: 'UPLOAD_JARS', defaultValue: false, description: 'Upload JARs to S3')
+    }
+
     environment {
-        RELEASE_VERSION = "25.2.0"
-        BUILD_DIR = "D:\\MarketMapBuilds\\${RELEASE_VERSION}\\CombinedBuild"
+        BUILD_DIR = "D:\\MarketMapBuilds\\${params.RELEASE_VERSION}\\CombinedBuild"
         AWS_ACCOUNT_ID = "969258966375"
         REGION = "eu-north-1"
-        SERVICE_NAME = "backend-webapi"
     }
 
     stages {
-        stage('Build & Push Service Docker Image') {
+        stage('Show Selections') {
+            steps {
+                script {
+                    echo "========= Pipeline Configuration ========="
+                    echo "Build Services   : ${params.BUILD_SERVICES}"
+                    echo "Build SQL        : ${params.BUILD_SQL}"
+                    echo "Build Metadata   : ${params.BUILD_METADATA}"
+                    echo "Release Version  : ${params.RELEASE_VERSION}"
+                    echo "Push to ECR      : ${params.PUSH_TO_ECR}"
+                    echo "Upload JARs      : ${params.UPLOAD_JARS}"
+                    echo "=========================================="
+                }
+            }
+        }
+
+        stage('Prepare Workspace') {
+            steps {
+                bat """
+                echo # Docker Build Manifest for RELEASE ${params.RELEASE_VERSION} > "D:\\MarketMapBuilds\\${params.RELEASE_VERSION}\\DockerBuildInfo.txt"
+                echo # Last Updated: %date% %time% >> "D:\\MarketMapBuilds\\${params.RELEASE_VERSION}\\DockerBuildInfo.txt"
+                """
+            }
+        }
+
+        stage('Build & Push Docker Images') {
+            when { expression { params.BUILD_SERVICES || params.BUILD_SQL || params.BUILD_METADATA } }
+            steps {
+                script {
+                    // Login to AWS ECR if needed
+                    if (params.PUSH_TO_ECR) {
+                        bat """
+                        aws ecr get-login-password --region ${REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com
+                        """
+                    }
+
+                    // Call Python script with parameters
+                    bat """
+                    cd "${WORKSPACE}"
+                    python build_and_push.py --build_dir "${BUILD_DIR}" --release_version "${params.RELEASE_VERSION}" --push_to_ecr ${params.PUSH_TO_ECR} --build_services ${params.BUILD_SERVICES} --build_sql ${params.BUILD_SQL} --build_metadata ${params.BUILD_METADATA}
+                    """
+                }
+            }
+        }
+
+        stage('Upload JARs to S3') {
+            when { expression { params.UPLOAD_JARS } }
             steps {
                 withAWS(region: "${REGION}", credentials: 'aws-jenkins') {
                     bat """
-                    aws ecr get-login-password --region %REGION% | docker login --username AWS --password-stdin %AWS_ACCOUNT_ID%.dkr.ecr.%REGION%.amazonaws.com
-                    python build_and_push_service.py "%BUILD_DIR%" "%SERVICE_NAME%" "%AWS_ACCOUNT_ID%.dkr.ecr.%REGION%.amazonaws.com" 
+                    aws s3 sync "${BUILD_DIR}" s3://marketmap-builds/${params.RELEASE_VERSION}/
                     """
                 }
+            }
+        }
+
+        stage('Summary') {
+            steps {
+                echo "✅ Pipeline completed successfully!"
             }
         }
     }
 
     post {
-        failure { echo "❌ Pipeline failed." }
-        success { echo "✅ Service Docker image built and pushed successfully!" }
+        failure {
+            echo "❌ Pipeline failed."
+        }
     }
 }

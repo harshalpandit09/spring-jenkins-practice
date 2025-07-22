@@ -2,14 +2,6 @@ pipeline {
     agent any
 
     parameters {
-        extendedChoice(
-            name: 'COMPONENTS',
-            type: 'PT_CHECKBOX',
-            description: 'Select components to build and push',
-            multiSelectDelimiter: ',',
-            value: 'SERVICES,SQL,METADATA',
-            defaultValue: 'SERVICES,SQL,METADATA'
-        )
         string(name: 'RELEASE_VERSION', defaultValue: '25.2.0', description: 'Release Version')
         booleanParam(name: 'PUSH_TO_ECR', defaultValue: true, description: 'Push Docker Images to AWS ECR')
         booleanParam(name: 'UPLOAD_JARS', defaultValue: false, description: 'Upload JARs to S3')
@@ -17,52 +9,26 @@ pipeline {
 
     environment {
         BUILD_DIR = "D:\\MarketMapBuilds\\${params.RELEASE_VERSION}\\CombinedBuild"
-        DOCKER_INFO = "D:\\MarketMapBuilds\\${params.RELEASE_VERSION}\\DockerBuildInfo.txt"
         AWS_ACCOUNT_ID = "969258966375"
         REGION = "eu-north-1"
     }
 
     stages {
-
         stage('Show Selections') {
             steps {
                 script {
-                    echo "========= Pipeline 2 Configuration ========="
-                    echo "Components     : ${params.COMPONENTS}"
-                    echo "Release Version: ${params.RELEASE_VERSION}"
-                    echo "Push to ECR    : ${params.PUSH_TO_ECR}"
-                    echo "Upload JARs    : ${params.UPLOAD_JARS}"
-                    echo "============================================"
+                    echo "========= Dry Run Configuration ========="
+                    echo "Release Version : ${params.RELEASE_VERSION}"
+                    echo "Push to ECR     : ${params.PUSH_TO_ECR}"
+                    echo "Upload JARs     : ${params.UPLOAD_JARS}"
+                    echo "========================================="
                 }
             }
         }
 
-        stage('Prepare Workspace') {
+        stage('Build & Push - backend-webapi') {
             steps {
-                bat """
-                echo # Docker Build Manifest for RELEASE ${params.RELEASE_VERSION} > "${DOCKER_INFO}"
-                echo # Last Updated: %date% %time% >> "${DOCKER_INFO}"
-                """
-            }
-        }
-
-        stage('Build & Push Docker Images') {
-            steps {
-                script {
-                    def components = params.COMPONENTS.split(',')
-                    components.each { comp ->
-                        comp = comp.trim()
-                        if (comp == "SERVICES") {
-                            bat """python build_push_backend.py backend-webapi ${params.RELEASE_VERSION} ${params.PUSH_TO_ECR}"""
-                        }
-                        if (comp == "SQL") {
-                            bat """python build_push_backend.py sql-service ${params.RELEASE_VERSION} ${params.PUSH_TO_ECR}"""
-                        }
-                        if (comp == "METADATA") {
-                            bat """python build_push_backend.py metadata-service ${params.RELEASE_VERSION} ${params.PUSH_TO_ECR}"""
-                        }
-                    }
-                }
+                bat """python build_push_backend.py backend-webapi ${params.RELEASE_VERSION} ${params.PUSH_TO_ECR}"""
             }
         }
 
@@ -74,17 +40,14 @@ pipeline {
                 }
             }
         }
-
-        stage('Summary') {
-            steps {
-                echo "Pipeline completed successfully!"
-            }
-        }
     }
 
     post {
         failure {
-            echo "❌ Pipeline 2 failed."
+            echo "❌ Dry Run Failed."
+        }
+        success {
+            echo "✅ Dry Run Completed Successfully!"
         }
     }
 }

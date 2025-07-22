@@ -2,31 +2,37 @@ pipeline {
     agent any
 
     parameters {
-        choice(name: 'RELEASE_VERSION', choices: ['25.2.0'], description: 'Select Release Version')
-        booleanParam(name: 'BUILD_SERVICES', defaultValue: true, description: 'Build Backend-WebAPI Docker Image')
-        booleanParam(name: 'BUILD_SQL', defaultValue: true, description: 'Build SQL-Service Docker Image')
-        booleanParam(name: 'BUILD_METADATA', defaultValue: true, description: 'Build Metadata-Service Docker Image')
-        booleanParam(name: 'PUSH_TO_ECR', defaultValue: true, description: 'Push Docker Images to ECR')
+        extendedChoice(
+            name: 'COMPONENTS',
+            type: 'PT_CHECKBOX',
+            description: 'Select components to build and push',
+            multiSelectDelimiter: ',',
+            value: 'SERVICES,SQL,METADATA',
+            defaultValue: 'SERVICES,SQL,METADATA'
+        )
+        string(name: 'RELEASE_VERSION', defaultValue: '25.2.0', description: 'Release Version')
+        booleanParam(name: 'PUSH_TO_ECR', defaultValue: true, description: 'Push Docker Images to AWS ECR')
+        booleanParam(name: 'UPLOAD_JARS', defaultValue: false, description: 'Upload JARs to S3')
     }
 
     environment {
-        AWS_ACCOUNT_ID = '969258966375'
-        REGION = 'eu-north-1'
         BUILD_DIR = "D:\\MarketMapBuilds\\${params.RELEASE_VERSION}\\CombinedBuild"
-        WORKSPACE_DIR = "C:\\ProgramData\\Jenkins\\.jenkins\\workspace\\MarketMap-Docker-Packaging\\docker"
+        DOCKER_INFO = "D:\\MarketMapBuilds\\${params.RELEASE_VERSION}\\DockerBuildInfo.txt"
+        AWS_ACCOUNT_ID = "969258966375"
+        REGION = "eu-north-1"
     }
 
     stages {
+
         stage('Show Selections') {
             steps {
                 script {
-                    echo "========= Pipeline Configuration ========="
-                    echo "Build Backend-WebAPI : ${params.BUILD_SERVICES}"
-                    echo "Build SQL-Service     : ${params.BUILD_SQL}"
-                    echo "Build Metadata        : ${params.BUILD_METADATA}"
-                    echo "Release Version       : ${params.RELEASE_VERSION}"
-                    echo "Push to ECR           : ${params.PUSH_TO_ECR}"
-                    echo "=========================================="
+                    echo "========= Pipeline 2 Configuration ========="
+                    echo "Components     : ${params.COMPONENTS}"
+                    echo "Release Version: ${params.RELEASE_VERSION}"
+                    echo "Push to ECR    : ${params.PUSH_TO_ECR}"
+                    echo "Upload JARs    : ${params.UPLOAD_JARS}"
+                    echo "============================================"
                 }
             }
         }
@@ -34,40 +40,51 @@ pipeline {
         stage('Prepare Workspace') {
             steps {
                 bat """
-                    echo # Docker Build Manifest for RELEASE ${params.RELEASE_VERSION} > D:\\MarketMapBuilds\\${params.RELEASE_VERSION}\\DockerBuildInfo.txt
-                    echo # Last Updated: %date% %time% >> D:\\MarketMapBuilds\\${params.RELEASE_VERSION}\\DockerBuildInfo.txt
+                echo # Docker Build Manifest for RELEASE ${params.RELEASE_VERSION} > "${DOCKER_INFO}"
+                echo # Last Updated: %date% %time% >> "${DOCKER_INFO}"
                 """
             }
         }
 
-        stage('Build Docker Images') {
+        stage('Build & Push Docker Images') {
             steps {
                 script {
-                    if (params.BUILD_SERVICES) {
-                        echo "Building backend-webapi Docker image..."
-                        bat """python build_push_backend.py backend-webapi ${params.RELEASE_VERSION} ${params.PUSH_TO_ECR}"""
-                    }
-
-                    if (params.BUILD_SQL) {
-                        echo "Building sql-service Docker image..."
-                        bat """python build_push_backend.py sql-service ${params.RELEASE_VERSION} ${params.PUSH_TO_ECR}"""
-                    }
-
-                    if (params.BUILD_METADATA) {
-                        echo "Building metadata-service Docker image..."
-                        bat """python build_push_backend.py metadata-service ${params.RELEASE_VERSION} ${params.PUSH_TO_ECR}"""
+                    def components = params.COMPONENTS.split(',')
+                    components.each { comp ->
+                        comp = comp.trim()
+                        if (comp == "SERVICES") {
+                            bat """python build_push_backend.py backend-webapi ${params.RELEASE_VERSION} ${params.PUSH_TO_ECR}"""
+                        }
+                        if (comp == "SQL") {
+                            bat """python build_push_backend.py sql-service ${params.RELEASE_VERSION} ${params.PUSH_TO_ECR}"""
+                        }
+                        if (comp == "METADATA") {
+                            bat """python build_push_backend.py metadata-service ${params.RELEASE_VERSION} ${params.PUSH_TO_ECR}"""
+                        }
                     }
                 }
+            }
+        }
+
+        stage('Upload JARs to S3') {
+            when { expression { params.UPLOAD_JARS } }
+            steps {
+                withAWS(region: "${REGION}", credentials: 'aws-jenkins') {
+                    bat """aws s3 sync "${BUILD_DIR}" s3://marketmap-builds/${params.RELEASE_VERSION}/"""
+                }
+            }
+        }
+
+        stage('Summary') {
+            steps {
+                echo "Pipeline completed successfully!"
             }
         }
     }
 
     post {
-        success {
-            echo "✔ Pipeline completed successfully."
-        }
         failure {
-            echo "✖ Pipeline failed."
+            echo "❌ Pipeline 2 failed."
         }
     }
 }

@@ -1,6 +1,6 @@
-import os
 import sys
 import subprocess
+import os
 
 def run_command(cmd):
     print(f"Running: {cmd}")
@@ -10,32 +10,34 @@ def run_command(cmd):
 
 def main():
     if len(sys.argv) != 3:
-        print("Usage: python push_images.py <docker_build_info> <aws_account_id>")
+        print("Usage: python push_images.py <DockerBuildInfo.txt> <ECR_URL>")
         sys.exit(1)
 
-    docker_info_path = sys.argv[1]
-    aws_account_id = sys.argv[2]
-    region = "eu-north-1"  # Update if region changes
+    build_info_file = sys.argv[1]
+    ecr_url = sys.argv[2]
 
-    if not os.path.exists(docker_info_path):
-        raise FileNotFoundError(f"Docker build info file not found: {docker_info_path}")
+    if not os.path.exists(build_info_file):
+        print(f"Error: {build_info_file} does not exist.")
+        sys.exit(1)
 
-    with open(docker_info_path, "r") as f:
+    with open(build_info_file, 'r') as f:
         lines = [line.strip() for line in f if line.strip() and not line.startswith('#')]
 
     if not lines:
-        print("No Docker images found in DockerBuildInfo.txt")
-        return
+        print("No images to push found in DockerBuildInfo.txt.")
+        sys.exit(0)
 
     for line in lines:
         if ':' not in line:
+            print(f"Skipping invalid line: {line}")
             continue
-        service, tag = line.split(':')
-        ecr_repo = f"{aws_account_id}.dkr.ecr.{region}.amazonaws.com/{service}:{tag}"
+        service, tag = line.split(':', 1)
+        ecr_image = f"{ecr_url}/{service}:{tag}"
+        print(f"Tagging and pushing {service}:{tag} -> {ecr_image}")
 
-        print(f"Tagging and pushing {service}:{tag} -> {ecr_repo}")
-        run_command(f"docker tag {service}:{tag} {ecr_repo}")
-        run_command(f"docker push {ecr_repo}")
+        # Tag and push
+        run_command(f"docker tag {service}:{tag} {ecr_image}")
+        run_command(f"docker push {ecr_image}")
 
 if __name__ == "__main__":
     main()

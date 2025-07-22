@@ -14,9 +14,12 @@ pipeline {
         stage('Build Docker Image - Services') {
             steps {
                 script {
-                    // List files and get the first match
+                    echo "Checking files in ${BUILD_DIR}\\CombinedBuild..."
+                    bat "dir \"${BUILD_DIR}\\CombinedBuild\""
+
+                    // Fetch JAR name with proper batch escaping
                     def jarName = bat(
-                        script: "for %i in (${BUILD_DIR}\\CombinedBuild\\backend-webapi.*.jar) do @echo %~nxi",
+                        script: "for %%i in (${BUILD_DIR}\\CombinedBuild\\backend-webapi.*.jar) do @echo %%~nxi",
                         returnStdout: true
                     ).trim()
 
@@ -26,11 +29,9 @@ pipeline {
 
                     echo "Found JAR: ${jarName}"
 
-                    // Extract tag from filename
                     def tag = jarName.replace("backend-webapi.", "").replace(".jar", "")
                     echo "Using tag: ${tag} for backend-webapi"
 
-                    // Copy JAR and build Docker image
                     bat """
                     copy "${BUILD_DIR}\\CombinedBuild\\${jarName}" "docker\\backend-webapi\\backend-webapi.jar" /Y
                     cd docker\\backend-webapi
@@ -39,12 +40,6 @@ pipeline {
                     """
                 }
             }
-        }
-    }
-
-    post {
-        failure {
-            echo "❌ Stage failed."
         }
     }
 }

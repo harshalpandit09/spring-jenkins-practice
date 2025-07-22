@@ -1,26 +1,14 @@
 pipeline {
     agent any
 
-    parameters {
-        booleanParam(name: 'BUILD_SERVICES', defaultValue: true, description: 'Build Services JAR')
-        booleanParam(name: 'BUILD_SQL', defaultValue: true, description: 'Build SQL JAR')
-        booleanParam(name: 'BUILD_METADATA', defaultValue: true, description: 'Build Metadata JAR')
-        booleanParam(name: 'PUSH_TO_ECR', defaultValue: true, description: 'Push Docker Images to ECR')
-        booleanParam(name: 'UPLOAD_JARS', defaultValue: true, description: 'Upload JARs to S3')
-        string(name: 'RELEASE_VERSION', defaultValue: '25.2.0', description: 'Release Version')
-    }
-
     environment {
         AWS_REGION = 'eu-north-1'
-        ECR_REGISTRY = '969258966375.dkr.ecr.eu-north-1.amazonaws.com'
-        ECR_REPO = 'marketmap-backend'
-        BUILD_BASE_DIR = "D:\\MarketMapBuilds\\${params.RELEASE_VERSION}"
-        DOCKER_MANIFEST = "${BUILD_BASE_DIR}\\DockerBuildInfo.txt"
-        S3_BUCKET = 's3://marketmap-artifacts'
+        AWS_ACCOUNT_ID = '969258966375'
+        RELEASE_VERSION = '25.2.0'
+        DOCKER_MANIFEST = "D:\\MarketMapBuilds\\${RELEASE_VERSION}\\DockerBuildInfo.txt"
     }
 
     stages {
-
         stage('Show Selections') {
             steps {
                 script {
@@ -28,7 +16,7 @@ pipeline {
                     echo "Build Services   : ${params.BUILD_SERVICES}"
                     echo "Build SQL        : ${params.BUILD_SQL}"
                     echo "Build Metadata   : ${params.BUILD_METADATA}"
-                    echo "Release Version  : ${params.RELEASE_VERSION}"
+                    echo "Release Version  : ${RELEASE_VERSION}"
                     echo "Push to ECR      : ${params.PUSH_TO_ECR}"
                     echo "Upload JARs      : ${params.UPLOAD_JARS}"
                     echo "============================================"
@@ -39,99 +27,105 @@ pipeline {
         stage('Prepare Workspace') {
             steps {
                 script {
-                    bat "echo # Docker Build Manifest for RELEASE ${params.RELEASE_VERSION} > \"${DOCKER_MANIFEST}\""
-                    bat "echo # Last Updated: %date% %time% >> \"${DOCKER_MANIFEST}\""
+                    bat """
+                        echo # Docker Build Manifest for RELEASE ${RELEASE_VERSION} > "${DOCKER_MANIFEST}"
+                        echo # Last Updated: %date% %time% >> "${DOCKER_MANIFEST}"
+                    """
                 }
             }
         }
 
         stage('Build Docker Image - Services') {
-            when { expression { params.BUILD_SERVICES } }
+            when { expression { return params.BUILD_SERVICES == true } }
             steps {
                 script {
                     bat """
-                        dir /b "${BUILD_BASE_DIR}\\CombinedBuild\\backend-webapi.*.jar" > jar_name.txt
-                        set /p JAR_NAME=<jar_name.txt
-                        for /f "tokens=2 delims=." %%a in ('echo %JAR_NAME%') do set VERSION=%%a
-                        echo Using tag: ${params.RELEASE_VERSION}.%VERSION% for backend-webapi
-                        copy "${BUILD_BASE_DIR}\\CombinedBuild\\%JAR_NAME%" "docker\\backend-webapi\\backend-webapi.jar" /Y
+                        dir /b "D:\\MarketMapBuilds\\${RELEASE_VERSION}\\CombinedBuild\\backend-webapi.*.jar" > jar_name.txt
+                    """
+                    def jarName = readFile('jar_name.txt').trim()
+                    def tag = jarName.split("\\.")[1..-2].join('.')  // Extract version part
+                    echo "Using tag: ${tag} for backend-webapi"
+                    bat """
+                        copy "D:\\MarketMapBuilds\\${RELEASE_VERSION}\\CombinedBuild\\${jarName}" "docker\\backend-webapi\\backend-webapi.jar" /Y
                         cd docker\\backend-webapi
-                        docker build -t backend-webapi:${params.RELEASE_VERSION}.%VERSION% .
-                        echo backend-webapi:${params.RELEASE_VERSION}.%VERSION% >> "${DOCKER_MANIFEST}"
+                        docker build -t backend-webapi:${tag} .
+                        echo backend-webapi:${tag} >> "${DOCKER_MANIFEST}"
                     """
                 }
             }
         }
 
         stage('Build Docker Image - SQL') {
-            when { expression { params.BUILD_SQL } }
+            when { expression { return params.BUILD_SQL == true } }
             steps {
                 script {
                     bat """
-                        dir /b "${BUILD_BASE_DIR}\\CombinedBuild\\sql-service.*.jar" > jar_name.txt
-                        set /p JAR_NAME=<jar_name.txt
-                        for /f "tokens=2 delims=." %%a in ('echo %JAR_NAME%') do set VERSION=%%a
-                        echo Using tag: ${params.RELEASE_VERSION}.%VERSION% for sql-service
-                        copy "${BUILD_BASE_DIR}\\CombinedBuild\\%JAR_NAME%" "docker\\sql-service\\sql-service.jar" /Y
+                        dir /b "D:\\MarketMapBuilds\\${RELEASE_VERSION}\\CombinedBuild\\sql-service.*.jar" > jar_name.txt
+                    """
+                    def jarName = readFile('jar_name.txt').trim()
+                    def tag = jarName.split("\\.")[1..-2].join('.')
+                    echo "Using tag: ${tag} for sql-service"
+                    bat """
+                        copy "D:\\MarketMapBuilds\\${RELEASE_VERSION}\\CombinedBuild\\${jarName}" "docker\\sql-service\\sql-service.jar" /Y
                         cd docker\\sql-service
-                        docker build -t sql-service:${params.RELEASE_VERSION}.%VERSION% .
-                        echo sql-service:${params.RELEASE_VERSION}.%VERSION% >> "${DOCKER_MANIFEST}"
+                        docker build -t sql-service:${tag} .
+                        echo sql-service:${tag} >> "${DOCKER_MANIFEST}"
                     """
                 }
             }
         }
 
         stage('Build Docker Image - Metadata') {
-            when { expression { params.BUILD_METADATA } }
+            when { expression { return params.BUILD_METADATA == true } }
             steps {
                 script {
                     bat """
-                        dir /b "${BUILD_BASE_DIR}\\CombinedBuild\\metadata-service.*.jar" > jar_name.txt
-                        set /p JAR_NAME=<jar_name.txt
-                        for /f "tokens=2 delims=." %%a in ('echo %JAR_NAME%') do set VERSION=%%a
-                        echo Using tag: ${params.RELEASE_VERSION}.%VERSION% for metadata-service
-                        copy "${BUILD_BASE_DIR}\\CombinedBuild\\%JAR_NAME%" "docker\\metadata-service\\metadata-service.jar" /Y
+                        dir /b "D:\\MarketMapBuilds\\${RELEASE_VERSION}\\CombinedBuild\\metadata-service.*.jar" > jar_name.txt
+                    """
+                    def jarName = readFile('jar_name.txt').trim()
+                    def tag = jarName.split("\\.")[1..-2].join('.')
+                    echo "Using tag: ${tag} for metadata-service"
+                    bat """
+                        copy "D:\\MarketMapBuilds\\${RELEASE_VERSION}\\CombinedBuild\\${jarName}" "docker\\metadata-service\\metadata-service.jar" /Y
                         cd docker\\metadata-service
-                        docker build -t metadata-service:${params.RELEASE_VERSION}.%VERSION% .
-                        echo metadata-service:${params.RELEASE_VERSION}.%VERSION% >> "${DOCKER_MANIFEST}"
+                        docker build -t metadata-service:${tag} .
+                        echo metadata-service:${tag} >> "${DOCKER_MANIFEST}"
                     """
                 }
             }
         }
 
         stage('Push Docker Images to ECR') {
-            when { expression { params.PUSH_TO_ECR } }
+            when { expression { return params.PUSH_TO_ECR == true } }
             steps {
-                withAWS(region: "${AWS_REGION}", credentials: 'aws-jenkins') {
-                    script {
-                        bat "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}"
-                        bat "python push_images.py \"${DOCKER_MANIFEST}\" \"${ECR_REGISTRY}\" \"${ECR_REPO}\""
-                    }
+                script {
+                    bat """
+                        aws configure set aws_access_key_id ${params.AWS_ACCESS_KEY}
+                        aws configure set aws_secret_access_key ${params.AWS_SECRET_KEY}
+                        aws configure set default.region ${AWS_REGION}
+                        aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
+                    """
+                    bat """
+                        python push_images.py "${DOCKER_MANIFEST}" "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+                    """
                 }
             }
         }
 
         stage('Upload JARs to S3') {
-            when { expression { params.UPLOAD_JARS } }
+            when { expression { return params.UPLOAD_JARS == true } }
             steps {
-                withAWS(region: "${AWS_REGION}", credentials: 'aws-jenkins') {
-                    script {
-                        bat "aws s3 sync \"${BUILD_BASE_DIR}\\CombinedBuild\" \"${S3_BUCKET}/${params.RELEASE_VERSION}/\""
-                    }
+                script {
+                    bat """
+                        aws s3 cp "D:\\MarketMapBuilds\\${RELEASE_VERSION}\\CombinedBuild" "s3://marketmap-deployments/${RELEASE_VERSION}/" --recursive
+                    """
                 }
-            }
-        }
-
-        stage('Summary') {
-            steps {
-                echo "Pipeline 2 completed successfully."
             }
         }
     }
 
     post {
-        failure {
-            echo "❌ Pipeline 2 failed."
-        }
+        success { echo '✅ Pipeline 2 completed successfully.' }
+        failure { echo '❌ Pipeline 2 failed.' }
     }
 }

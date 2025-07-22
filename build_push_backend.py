@@ -1,83 +1,50 @@
-pipeline {
-    agent any
+import os
+import sys
+import subprocess
+import shutil
 
-    parameters {
-        choice(name: 'COMPONENTS', choices: ['Services', 'SQL', 'Metadata', 'All'], description: 'Select components to build')
-        string(name: 'RELEASE_VERSION', defaultValue: '25.2.0', description: 'Release Version')
-        booleanParam(name: 'PUSH_TO_ECR', defaultValue: true, description: 'Push Docker Images to AWS ECR')
-        booleanParam(name: 'UPLOAD_JARS', defaultValue: false, description: 'Upload JARs to S3')
-    }
+AWS_ACCOUNT_ID = "969258966375"
+REGION = "eu-north-1"
 
-    environment {
-        BUILD_DIR = "D:\\MarketMapBuilds\\${params.RELEASE_VERSION}\\CombinedBuild"
-        AWS_ACCOUNT_ID = "969258966375"
-        REGION = "eu-north-1"
-    }
+def run(cmd):
+    print(f"Running: {cmd}")
+    subprocess.check_call(cmd, shell=True)
 
-    stages {
-        stage('Show Selections') {
-            steps {
-                script {
-                    echo "========= Pipeline Configuration ========="
-                    echo "Components     : ${params.COMPONENTS}"
-                    echo "Release Version: ${params.RELEASE_VERSION}"
-                    echo "Push to ECR    : ${params.PUSH_TO_ECR}"
-                    echo "Upload JARs    : ${params.UPLOAD_JARS}"
-                    echo "=========================================="
-                }
-            }
-        }
+def build_and_push(component, release_version, push_to_ecr):
+    build_dir = f"D:\\MarketMapBuilds\\{release_version}\\CombinedBuild"
+    docker_context = f"C:\\ProgramData\\Jenkins\\.jenkins\\workspace\\MarketMap-Docker-Packaging\\docker\\{component}"
+    ecr_repo = f"{AWS_ACCOUNT_ID}.dkr.ecr.{REGION}.amazonaws.com/{component}"
 
-        stage('Build & Push Docker Images') {
-            steps {
-                script {
-                    def comps = []
-                    if (params.COMPONENTS == "All") {
-                        comps = ['backend-webapi', 'sql-service', 'metadata-service']
-                    } else if (params.COMPONENTS == "Services") {
-                        comps = ['backend-webapi']
-                    } else if (params.COMPONENTS == "SQL") {
-                        comps = ['sql-service']
-                    } else if (params.COMPONENTS == "Metadata") {
-                        comps = ['metadata-service']
-                    }
+    # Find latest JAR
+    jars = [f for f in os.listdir(build_dir) if f.startswith(component) and f.endswith(".jar")]
+    if not jars:
+        raise FileNotFoundError(f"No {component} JAR found in {build_dir}")
 
-                    withAWS(region: "${REGION}", credentials: 'aws-jenkins') {
-                        bat """
-                        aws ecr get-login-password --region ${REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com
-                        """
+    jars.sort(key=lambda x: os.path.getmtime(os.path.join(build_dir, x)), reverse=True)
+    latest_jar = jars[0]
+    tag = latest_jar.replace(f"{component}.", "").replace(".jar", "")
+    print(f"Found JAR: {latest_jar}")
+    print(f"Using Docker tag: {tag}")
 
-                        comps.each { comp ->
-                            bat """
-                            python build_push_backend.py ${comp} ${params.RELEASE_VERSION} ${params.PUSH_TO_ECR}
-                            """
-                        }
-                    }
-                }
-            }
-        }
+    # Copy JAR
+    target_jar = os.path.join(docker_context, f"{component}.jar")
+    shutil.copy(os.path.join(build_dir, latest_jar), target_jar)
 
-        stage('Upload JARs to S3') {
-            when { expression { params.UPLOAD_JARS } }
-            steps {
-                withAWS(region: "${REGION}", credentials: 'aws-jenkins') {
-                    bat """
-                    aws s3 sync "${BUILD_DIR}" s3://marketmap-builds/${params.RELEASE_VERSION}/
-                    """
-                }
-            }
-        }
+    # Build Docker image (disable BuildKit to avoid Image Index)
+    os.environ["DOCKER_BUILDKIT"] = "0"
+    run(f'docker build -t {component}:{tag} "{docker_context}"')
 
-        stage('Summary') {
-            steps {
-                echo "Pipeline completed successfully!"
-            }
-        }
-    }
+    # Push to ECR
+    if push_to_ecr.lower() == "true":
+        run(f'docker tag {component}:{tag} {ecr_repo}:{tag}')
+        run(f'docker push {ecr_repo}:{tag}')
 
-    post {
-        failure {
-            echo "❌ Pipeline failed."
-        }
-    }
-}
+def main():
+    if len(sys.argv) < 4:
+        print("Usage: python build_push_backend.py <component> <release_version> <push_to_ecr>")
+        sys.exit(1)
+
+    build_and_push(sys.argv[1], sys.argv[2], sys.argv[3])
+
+if __name__ == "__main__":
+    main()

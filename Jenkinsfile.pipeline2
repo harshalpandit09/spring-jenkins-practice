@@ -2,12 +2,12 @@ pipeline {
     agent any
 
     parameters {
-        booleanParam(name: 'BUILD_SERVICES', defaultValue: true, description: 'Build Docker Image for backend-webapi')
-        booleanParam(name: 'BUILD_SQL', defaultValue: true, description: 'Build Docker Image for sql-service')
-        booleanParam(name: 'BUILD_METADATA', defaultValue: true, description: 'Build Docker Image for metadata-service')
-        string(name: 'RELEASE_VERSION', defaultValue: '25.2.0', description: 'Release version (e.g., 25.2.0)')
+        booleanParam(name: 'BUILD_SERVICES', defaultValue: true, description: 'Build backend-webapi Docker Image')
+        booleanParam(name: 'BUILD_SQL', defaultValue: true, description: 'Build SQL Docker Image')
+        booleanParam(name: 'BUILD_METADATA', defaultValue: true, description: 'Build Metadata Docker Image')
+        string(name: 'RELEASE_VERSION', defaultValue: '25.2.0', description: 'Release Version')
         booleanParam(name: 'PUSH_TO_ECR', defaultValue: true, description: 'Push Docker Images to AWS ECR')
-        booleanParam(name: 'UPLOAD_JARS', defaultValue: true, description: 'Upload JARs to AWS S3')
+        booleanParam(name: 'UPLOAD_JARS', defaultValue: false, description: 'Upload JARs to S3')
     }
 
     environment {
@@ -15,11 +15,9 @@ pipeline {
         DOCKER_INFO = "D:\\MarketMapBuilds\\${params.RELEASE_VERSION}\\DockerBuildInfo.txt"
         AWS_ACCOUNT_ID = "969258966375"
         REGION = "eu-north-1"
-        S3_BUCKET = "marketmap-builds"
     }
 
     stages {
-
         stage('Show Selections') {
             steps {
                 script {
@@ -31,6 +29,18 @@ pipeline {
                     echo "Push to ECR      : ${params.PUSH_TO_ECR}"
                     echo "Upload JARs      : ${params.UPLOAD_JARS}"
                     echo "============================================"
+                }
+            }
+        }
+
+        stage('Check for Dry Run') {
+            steps {
+                script {
+                    if (!params.BUILD_SERVICES && !params.BUILD_SQL && !params.BUILD_METADATA) {
+                        echo "No components selected. Performing DRY RUN only."
+                        currentBuild.result = 'SUCCESS'
+                        error("DRY RUN: Exiting pipeline as no build components are selected.")
+                    }
                 }
             }
         }
@@ -104,7 +114,7 @@ pipeline {
                 withAWS(region: "${REGION}", credentials: 'aws-jenkins') {
                     bat """
                     aws ecr get-login-password --region ${REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com
-                    python push_images.py "${DOCKER_INFO}" "${AWS_ACCOUNT_ID}" "${REGION}"
+                    python push_images.py "${DOCKER_INFO}" "${AWS_ACCOUNT_ID}"
                     """
                 }
             }
@@ -115,7 +125,7 @@ pipeline {
             steps {
                 withAWS(region: "${REGION}", credentials: 'aws-jenkins') {
                     bat """
-                    aws s3 sync "${BUILD_DIR}" s3://${S3_BUCKET}/${params.RELEASE_VERSION}/
+                    aws s3 sync "${BUILD_DIR}" s3://marketmap-builds/${params.RELEASE_VERSION}/
                     """
                 }
             }

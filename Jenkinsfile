@@ -185,32 +185,28 @@ pipeline {
                     subject: "MarketMap Build SUCCESS - ${params.RELEASE}",
                     body: """
                         Hello Team,<br><br>
-                        Jenkins build <b>${currentBuild.displayName}</b> for release <b>${params.RELEASE}</b> has <b>SUCCEEDED</b>.<br><br>
-                        Build Number : ${env.BUILD_NUMBER}<br>
-                        Branch       : ${env.BRANCH_NAME}<br>
-                        Duration     : ${duration}<br><br>
+                        Build <b>${currentBuild.displayName}</b> completed <b>SUCCESSFULLY</b>.<br>
+                        Duration: ${duration}<br><br>
                         Regards,<br>
                         Jenkins
                     """,
                     mimeType: 'text/html'
                 )
             } else {
-                def logFile = "${WORKSPACE}\\build_console_log.txt"
-                writeFile file: logFile, text: currentBuild.getLog(10000).join("\n")  // FIXED
+                // Path to the Jenkins console log file
+                def logFilePath = manager.build.logFile
                 emailext(
                     to: "${EMAIL_RECIPIENTS}",
                     subject: "MarketMap Build FAILED - ${params.RELEASE}",
                     body: """
                         Hello Team,<br><br>
-                        Jenkins build <b>${currentBuild.displayName}</b> for release <b>${params.RELEASE}</b> has <b>FAILED</b>.<br><br>
-                        Build Number : ${env.BUILD_NUMBER}<br>
-                        Branch       : ${env.BRANCH_NAME}<br>
-                        Duration     : ${duration}<br><br>
-                        Please check the attached log for details.<br><br>
+                        Build <b>${currentBuild.displayName}</b> has <b>FAILED</b>.<br>
+                        Duration: ${duration}<br><br>
+                        Please check the attached log.<br>
                         Regards,<br>
                         Jenkins
                     """,
-                    attachmentsPattern: "build_console_log.txt",
+                    attachmentsPattern: logFilePath.toString(),
                     mimeType: 'text/html'
                 )
             }

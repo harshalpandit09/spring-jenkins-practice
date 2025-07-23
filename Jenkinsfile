@@ -1,8 +1,3 @@
-@NonCPS
-def getBuildLog(int maxLines) {
-    return currentBuild.rawBuild.getLog(maxLines).join('\n')
-}
-
 pipeline {
     agent any
 
@@ -64,13 +59,8 @@ pipeline {
             when { expression { params.BUILD_SERVICES || params.BUILD_SQL || params.BUILD_METADATA } }
             steps {
                 script {
-                    try {
-                        bat "if not exist ${RELEASE_DIR} mkdir ${RELEASE_DIR}"
-                        bat "if not exist ${COMBINED_DIR} mkdir ${COMBINED_DIR}"
-                    } catch (e) {
-                        currentBuild.result = 'FAILURE'
-                        throw e
-                    }
+                    bat "if not exist ${RELEASE_DIR} mkdir ${RELEASE_DIR}"
+                    bat "if not exist ${COMBINED_DIR} mkdir ${COMBINED_DIR}"
                 }
             }
         }
@@ -79,20 +69,15 @@ pipeline {
             when { expression { params.BUILD_SERVICES } }
             steps {
                 script {
-                    try {
-                        echo "Building Services module..."
-                        bat "mvn clean package -f backend-webapi/pom.xml -DskipTests"
-                        bat """
-                            cd backend-webapi\\target
-                            rename backend-webapi-0.0.1-SNAPSHOT.jar backend-webapi.${BUILD_TAG}.jar
-                            move backend-webapi.${BUILD_TAG}.jar ${RELEASE_DIR}
-                            del /Q ${COMBINED_DIR}\\backend-webapi.*.jar
-                            copy /Y ${RELEASE_DIR}\\backend-webapi.${BUILD_TAG}.jar ${COMBINED_DIR}
-                        """
-                    } catch (e) {
-                        currentBuild.result = 'FAILURE'
-                        throw e
-                    }
+                    echo "Building Services module..."
+                    bat "mvn clean package -f backend-webapi/pom.xml -DskipTests"
+                    bat """
+                        cd backend-webapi\\target
+                        rename backend-webapi-0.0.1-SNAPSHOT.jar backend-webapi.${BUILD_TAG}.jar
+                        move backend-webapi.${BUILD_TAG}.jar ${RELEASE_DIR}
+                        del /Q ${COMBINED_DIR}\\backend-webapi.*.jar
+                        copy /Y ${RELEASE_DIR}\\backend-webapi.${BUILD_TAG}.jar ${COMBINED_DIR}
+                    """
                 }
             }
         }
@@ -101,20 +86,15 @@ pipeline {
             when { expression { params.BUILD_SQL } }
             steps {
                 script {
-                    try {
-                        echo "Building SQL module..."
-                        bat "mvn clean package -f sql-service/pom.xml -DskipTests"
-                        bat """
-                            cd sql-service\\target
-                            rename sql-service-0.0.1-SNAPSHOT.jar sql-service.${BUILD_TAG}.jar
-                            move sql-service.${BUILD_TAG}.jar ${RELEASE_DIR}
-                            del /Q ${COMBINED_DIR}\\sql-service.*.jar
-                            copy /Y ${RELEASE_DIR}\\sql-service.${BUILD_TAG}.jar ${COMBINED_DIR}
-                        """
-                    } catch (e) {
-                        currentBuild.result = 'FAILURE'
-                        throw e
-                    }
+                    echo "Building SQL module..."
+                    bat "mvn clean package -f sql-service/pom.xml -DskipTests"
+                    bat """
+                        cd sql-service\\target
+                        rename sql-service-0.0.1-SNAPSHOT.jar sql-service.${BUILD_TAG}.jar
+                        move sql-service.${BUILD_TAG}.jar ${RELEASE_DIR}
+                        del /Q ${COMBINED_DIR}\\sql-service.*.jar
+                        copy /Y ${RELEASE_DIR}\\sql-service.${BUILD_TAG}.jar ${COMBINED_DIR}
+                    """
                 }
             }
         }
@@ -123,21 +103,17 @@ pipeline {
             when { expression { params.BUILD_METADATA } }
             steps {
                 script {
-                    try {
-                        echo "Building Metadata module..."
-                        error("Forcing failure in Metadata step!") // Test failure
-                        bat "mvn clean package -f metadata-service/pom.xml -DskipTests"
-                        bat """
-                            cd metadata-service\\target
-                            rename metadata-service-0.0.1-SNAPSHOT.jar metadata-service.${BUILD_TAG}.jar
-                            move metadata-service.${BUILD_TAG}.jar ${RELEASE_DIR}
-                            del /Q ${COMBINED_DIR}\\metadata-service.*.jar
-                            copy /Y ${RELEASE_DIR}\\metadata-service.${BUILD_TAG}.jar ${COMBINED_DIR}
-                        """
-                    } catch (e) {
-                        currentBuild.result = 'FAILURE'
-                        throw e
-                    }
+                    echo "Building Metadata module..."
+                    // Uncomment below line only to test failure
+                    error("Forcing failure in Metadata step!")
+                    bat "mvn clean package -f metadata-service/pom.xml -DskipTests"
+                    bat """
+                        cd metadata-service\\target
+                        rename metadata-service-0.0.1-SNAPSHOT.jar metadata-service.${BUILD_TAG}.jar
+                        move metadata-service.${BUILD_TAG}.jar ${RELEASE_DIR}
+                        del /Q ${COMBINED_DIR}\\metadata-service.*.jar
+                        copy /Y ${RELEASE_DIR}\\metadata-service.${BUILD_TAG}.jar ${COMBINED_DIR}
+                    """
                 }
             }
         }
@@ -146,18 +122,13 @@ pipeline {
             when { expression { params.BUILD_SERVICES || params.BUILD_SQL || params.BUILD_METADATA } }
             steps {
                 script {
-                    try {
-                        echo "Rebuilding manifest file in ${MANIFEST_FILE}"
-                        bat "del /Q ${MANIFEST_FILE} || echo No old manifest"
-                        bat """
-                            echo # Build Manifest for RELEASE ${params.RELEASE} > ${MANIFEST_FILE}
-                            echo # Last Updated: %DATE% %TIME% >> ${MANIFEST_FILE}
-                            for %%F in (${COMBINED_DIR}\\*.jar) do echo %%~nxF >> ${MANIFEST_FILE}
-                        """
-                    } catch (e) {
-                        currentBuild.result = 'FAILURE'
-                        throw e
-                    }
+                    echo "Rebuilding manifest file in ${MANIFEST_FILE}"
+                    bat "del /Q ${MANIFEST_FILE} || echo No old manifest"
+                    bat """
+                        echo # Build Manifest for RELEASE ${params.RELEASE} > ${MANIFEST_FILE}
+                        echo # Last Updated: %DATE% %TIME% >> ${MANIFEST_FILE}
+                        for %%F in (${COMBINED_DIR}\\*.jar) do echo %%~nxF >> ${MANIFEST_FILE}
+                    """
                 }
             }
         }
@@ -166,13 +137,8 @@ pipeline {
             when { expression { params.BUILD_SERVICES || params.BUILD_SQL || params.BUILD_METADATA } }
             steps {
                 script {
-                    try {
-                        echo "##### Summary of Combined Build #####"
-                        bat "type ${MANIFEST_FILE}"
-                    } catch (e) {
-                        currentBuild.result = 'FAILURE'
-                        throw e
-                    }
+                    echo "##### Summary of Combined Build #####"
+                    bat "type ${MANIFEST_FILE}"
                 }
             }
         }
@@ -182,6 +148,8 @@ pipeline {
         always {
             script {
                 def duration = currentBuild.durationString.replace('and counting', '').trim()
+                def logFile = currentBuild.rawBuild.getLogFile()
+
                 if (currentBuild.result == 'SUCCESS') {
                     emailext(
                         to: "${EMAIL_RECIPIENTS}",
@@ -196,7 +164,6 @@ pipeline {
                         mimeType: 'text/html'
                     )
                 } else {
-                    def logSnippet = getBuildLog(200)
                     emailext(
                         to: "${EMAIL_RECIPIENTS}",
                         subject: "MarketMap Build FAILED - ${params.RELEASE}",
@@ -204,11 +171,11 @@ pipeline {
                             Hello Team,<br><br>
                             Build <b>${currentBuild.displayName}</b> has <b>FAILED</b>.<br>
                             Duration: ${duration}<br><br>
-                            <b>Last 200 log lines:</b><br><br>
-                            <pre>${logSnippet}</pre><br>
+                            Please check the attached log.<br>
                             Regards,<br>
                             Jenkins
                         """,
+                        attachmentsPattern: logFile.toString(),
                         mimeType: 'text/html'
                     )
                 }

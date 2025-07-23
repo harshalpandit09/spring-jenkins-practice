@@ -121,7 +121,7 @@ pipeline {
                     try {
                         echo "Building Metadata module..."
                         // Uncomment below to simulate failure
-                        // error("Forcing failure in Metadata step!")
+                        error("Forcing failure in Metadata step!")
                         bat "mvn clean package -f metadata-service/pom.xml -DskipTests"
                         bat """
                             cd metadata-service\\target

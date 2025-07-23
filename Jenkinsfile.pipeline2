@@ -2,7 +2,9 @@ pipeline {
     agent any
 
     parameters {
-        choice(name: 'COMPONENTS', choices: ['Services', 'SQL', 'Metadata', 'All'], description: 'Select components to build')
+        booleanParam(name: 'BUILD_SERVICES', defaultValue: true, description: 'Build Services Docker Image')
+        booleanParam(name: 'BUILD_SQL', defaultValue: true, description: 'Build SQL Docker Image')
+        booleanParam(name: 'BUILD_METADATA', defaultValue: true, description: 'Build Metadata Docker Image')
         string(name: 'RELEASE_VERSION', defaultValue: '25.2.0', description: 'Release Version')
         booleanParam(name: 'PUSH_TO_ECR', defaultValue: true, description: 'Push Docker Images to AWS ECR')
         booleanParam(name: 'UPLOAD_JARS', defaultValue: false, description: 'Upload JARs to S3')
@@ -19,7 +21,9 @@ pipeline {
             steps {
                 script {
                     echo "========= Pipeline Configuration ========="
-                    echo "Components     : ${params.COMPONENTS}"
+                    echo "Build Services : ${params.BUILD_SERVICES}"
+                    echo "Build SQL      : ${params.BUILD_SQL}"
+                    echo "Build Metadata : ${params.BUILD_METADATA}"
                     echo "Release Version: ${params.RELEASE_VERSION}"
                     echo "Push to ECR    : ${params.PUSH_TO_ECR}"
                     echo "Upload JARs    : ${params.UPLOAD_JARS}"
@@ -32,14 +36,14 @@ pipeline {
             steps {
                 script {
                     def comps = []
-                    if (params.COMPONENTS == "All") {
-                        comps = ['backend-webapi', 'sql-service', 'metadata-service']
-                    } else if (params.COMPONENTS == "Services") {
-                        comps = ['backend-webapi']
-                    } else if (params.COMPONENTS == "SQL") {
-                        comps = ['sql-service']
-                    } else if (params.COMPONENTS == "Metadata") {
-                        comps = ['metadata-service']
+
+                    if (params.BUILD_SERVICES) comps << 'backend-webapi'
+                    if (params.BUILD_SQL) comps << 'sql-service'
+                    if (params.BUILD_METADATA) comps << 'metadata-service'
+
+                    if (comps.size() == 0) {
+                        echo "⚠️ No components selected for build."
+                        return
                     }
 
                     withAWS(region: "${REGION}", credentials: 'aws-jenkins') {

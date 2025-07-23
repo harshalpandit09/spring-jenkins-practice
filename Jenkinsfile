@@ -44,13 +44,8 @@ pipeline {
         stage('Checkout Code') {
             steps {
                 script {
-                    try {
-                        checkout scm
-                        echo "Code checked out from branch: ${env.BRANCH_NAME}"
-                    } catch (e) {
-                        currentBuild.result = 'FAILURE'
-                        throw e
-                    }
+                    checkout scm
+                    echo "Code checked out from branch: ${env.BRANCH_NAME}"
                 }
             }
         }
@@ -58,10 +53,8 @@ pipeline {
         stage('Prepare Folders') {
             when { expression { params.BUILD_SERVICES || params.BUILD_SQL || params.BUILD_METADATA } }
             steps {
-                script {
-                    bat "if not exist ${RELEASE_DIR} mkdir ${RELEASE_DIR}"
-                    bat "if not exist ${COMBINED_DIR} mkdir ${COMBINED_DIR}"
-                }
+                bat "if not exist ${RELEASE_DIR} mkdir ${RELEASE_DIR}"
+                bat "if not exist ${COMBINED_DIR} mkdir ${COMBINED_DIR}"
             }
         }
 
@@ -104,7 +97,7 @@ pipeline {
             steps {
                 script {
                     echo "Building Metadata module..."
-                    // Uncomment below line only to test failure
+                    // Uncomment below line only for testing failure
                     error("Forcing failure in Metadata step!")
                     bat "mvn clean package -f metadata-service/pom.xml -DskipTests"
                     bat """
@@ -136,50 +129,44 @@ pipeline {
         stage('Summary of Combined Build') {
             when { expression { params.BUILD_SERVICES || params.BUILD_SQL || params.BUILD_METADATA } }
             steps {
-                script {
-                    echo "##### Summary of Combined Build #####"
-                    bat "type ${MANIFEST_FILE}"
-                }
+                echo "##### Summary of Combined Build #####"
+                bat "type ${MANIFEST_FILE}"
             }
         }
     }
 
     post {
-        always {
-            script {
-                def duration = currentBuild.durationString.replace('and counting', '').trim()
-                def logFile = currentBuild.rawBuild.getLogFile()
+        success {
+            emailext(
+                to: "${EMAIL_RECIPIENTS}",
+                subject: "MarketMap Build SUCCESS - ${params.RELEASE}",
+                body: """
+                    Hello Team,<br><br>
+                    Build <b>${currentBuild.displayName}</b> completed <b>SUCCESSFULLY</b>.<br>
+                    Duration: ${currentBuild.durationString}<br><br>
+                    Regards,<br>
+                    Jenkins
+                """,
+                mimeType: 'text/html',
+                attachLog: true
+            )
+        }
 
-                if (currentBuild.result == 'SUCCESS') {
-                    emailext(
-                        to: "${EMAIL_RECIPIENTS}",
-                        subject: "MarketMap Build SUCCESS - ${params.RELEASE}",
-                        body: """
-                            Hello Team,<br><br>
-                            Build <b>${currentBuild.displayName}</b> completed <b>SUCCESSFULLY</b>.<br>
-                            Duration: ${duration}<br><br>
-                            Regards,<br>
-                            Jenkins
-                        """,
-                        mimeType: 'text/html'
-                    )
-                } else {
-                    emailext(
-                        to: "${EMAIL_RECIPIENTS}",
-                        subject: "MarketMap Build FAILED - ${params.RELEASE}",
-                        body: """
-                            Hello Team,<br><br>
-                            Build <b>${currentBuild.displayName}</b> has <b>FAILED</b>.<br>
-                            Duration: ${duration}<br><br>
-                            Please check the attached log.<br>
-                            Regards,<br>
-                            Jenkins
-                        """,
-                        attachmentsPattern: logFile.toString(),
-                        mimeType: 'text/html'
-                    )
-                }
-            }
+        failure {
+            emailext(
+                to: "${EMAIL_RECIPIENTS}",
+                subject: "MarketMap Build FAILED - ${params.RELEASE}",
+                body: """
+                    Hello Team,<br><br>
+                    Build <b>${currentBuild.displayName}</b> has <b>FAILED</b>.<br>
+                    Duration: ${currentBuild.durationString}<br><br>
+                    Please check the attached log.<br>
+                    Regards,<br>
+                    Jenkins
+                """,
+                mimeType: 'text/html',
+                attachLog: true
+            )
         }
     }
 }

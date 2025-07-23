@@ -15,7 +15,7 @@ pipeline {
         RELEASE_DIR   = "${BASE_DIR}\\${params.RELEASE}"
         COMBINED_DIR  = "${RELEASE_DIR}\\CombinedBuild"
         MANIFEST_FILE = "${COMBINED_DIR}\\build_manifest.txt"
-        EMAIL_RECIPIENTS = "harshalpandit09@gmail.com"  // Update with your team emails
+        EMAIL_RECIPIENTS = "harshalpandit09@gmail.com,sbmukhekar31@gmail.com"  // Update with your team emails
     }
 
     stages {
@@ -69,7 +69,7 @@ pipeline {
         }
 
         stage('Build Metadata') {
-            when { expression { params.BUILD_METADATA } }
+            whenn { expression { params.BUILD_METADATA } }
             steps {
                 script {
                     echo "Building Metadata module..."

@@ -15,6 +15,7 @@ pipeline {
         RELEASE_DIR   = "${BASE_DIR}\\${params.RELEASE}"
         COMBINED_DIR  = "${RELEASE_DIR}\\CombinedBuild"
         MANIFEST_FILE = "${COMBINED_DIR}\\build_manifest.txt"
+        EMAIL_RECIPIENTS = "harshalpandit09@gmail.com"  // Update with your team emails
     }
 
     stages {
@@ -108,10 +109,56 @@ pipeline {
 
     post {
         success {
-            echo "✅ Pipeline completed successfully. Latest combined builds are in ${COMBINED_DIR}"
+            script {
+                def duration = currentBuild.durationString.replace('and counting', '').trim()
+                emailext (
+                    subject: "MarketMap Build SUCCESS - ${params.RELEASE}",
+                    body: """
+                        Hello Team,<br><br>
+                        Jenkins build <b>${currentBuild.displayName}</b> for release <b>${params.RELEASE}</b> has <b>SUCCEEDED</b>.<br>
+                        <br>
+                        <b>Build Details:</b><br>
+                        Build Number : ${env.BUILD_NUMBER}<br>
+                        Release      : ${params.RELEASE}<br>
+                        Branch       : ${env.BRANCH_NAME}<br>
+                        Started At   : ${currentBuild.startTimeInMillis ? new Date(currentBuild.startTimeInMillis) : 'N/A'}<br>
+                        Duration     : ${duration}<br><br>
+                        Regards,<br>
+                        Jenkins
+                    """,
+                    to: "${EMAIL_RECIPIENTS}",
+                    mimeType: 'text/html'
+                )
+            }
         }
+
         failure {
-            echo "❌ Pipeline failed on branch: ${env.BRANCH_NAME}"
+            script {
+                def duration = currentBuild.durationString.replace('and counting', '').trim()
+                def logFile = "${WORKSPACE}\\build_console_log.txt"
+                writeFile file: logFile, text: currentBuild.rawBuild.getLog(10000).join("\n")
+                
+                emailext (
+                    subject: "MarketMap Build FAILED - ${params.RELEASE}",
+                    body: """
+                        Hello Team,<br><br>
+                        Jenkins build <b>${currentBuild.displayName}</b> for release <b>${params.RELEASE}</b> has <b>FAILED</b>.<br>
+                        <br>
+                        <b>Build Details:</b><br>
+                        Build Number : ${env.BUILD_NUMBER}<br>
+                        Release      : ${params.RELEASE}<br>
+                        Branch       : ${env.BRANCH_NAME}<br>
+                        Started At   : ${currentBuild.startTimeInMillis ? new Date(currentBuild.startTimeInMillis) : 'N/A'}<br>
+                        Duration     : ${duration}<br><br>
+                        Please check the attached log for details.<br><br>
+                        Regards,<br>
+                        Jenkins
+                    """,
+                    to: "${EMAIL_RECIPIENTS}",
+                    attachmentsPattern: "build_console_log.txt",
+                    mimeType: 'text/html'
+                )
+            }
         }
     }
 }

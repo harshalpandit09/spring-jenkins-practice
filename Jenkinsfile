@@ -99,7 +99,7 @@ pipeline {
                     echo "Building Metadata module..."
                     // Uncomment below line only for testing failure
                     //error("Forcing failure in Metadata step!")
-                    bat "mvvn clean package -f metadata-service/pom.xml -DskipTests"
+                    bat "mvn clean package -f metadata-service/pom.xml -DskipTests"
                     bat """
                         cd metadata-service\\target
                         rename metadata-service-0.0.1-SNAPSHOT.jar metadata-service.${BUILD_TAG}.jar

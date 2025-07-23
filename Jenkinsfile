@@ -143,7 +143,11 @@ pipeline {
                 body: """
                     Hello Team,<br><br>
                     Build <b>${currentBuild.displayName}</b> completed <b>SUCCESSFULLY</b>.<br>
-                    Duration: ${currentBuild.durationString}<br><br>
+                    <b>Build Number:</b> ${env.BUILD_NUMBER}<br>
+                    <b>Branch:</b> ${env.BRANCH_NAME}<br>
+                    <b>Release:</b> ${params.RELEASE}<br>
+                    <b>Start Time:</b> ${currentBuild.startTimeInMillis}<br>
+                    <b>Duration:</b> ${currentBuild.durationString}<br><br>
                     Regards,<br>
                     Jenkins
                 """,
@@ -159,6 +163,10 @@ pipeline {
                 body: """
                     Hello Team,<br><br>
                     Build <b>${currentBuild.displayName}</b> has <b>FAILED</b>.<br>
+                    <b>Build Number:</b> ${env.BUILD_NUMBER}<br>
+                    <b>Branch:</b> ${env.BRANCH_NAME}<br>
+                    <b>Release:</b> ${params.RELEASE}<br>
+                    <b>Start Time:</b> ${currentBuild.startTimeInMillis}<br>
                     Duration: ${currentBuild.durationString}<br><br>
                     Please check the attached log.<br>
                     Regards,<br>

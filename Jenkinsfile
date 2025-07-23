@@ -175,53 +175,46 @@ pipeline {
     }
 
     post {
-        always {
-            script {
-                def duration = currentBuild.durationString.replace('and counting', '').trim()
-                if (currentBuild.result == null) {
-                    currentBuild.result = 'SUCCESS'
-                }
+    always {
+        script {
+            def duration = currentBuild.durationString.replace('and counting', '').trim()
 
-                if (currentBuild.result == 'SUCCESS') {
-                    emailext(
-                        to: "${EMAIL_RECIPIENTS}",
-                        subject: "MarketMap Build SUCCESS - ${params.RELEASE}",
-                        body: """
-                            Hello Team,<br><br>
-                            Jenkins build <b>${currentBuild.displayName}</b> for release <b>${params.RELEASE}</b> has <b>SUCCEEDED</b>.<br><br>
-                            <b>Build Details:</b><br>
-                            Build Number : ${env.BUILD_NUMBER}<br>
-                            Release      : ${params.RELEASE}<br>
-                            Branch       : ${env.BRANCH_NAME}<br>
-                            Duration     : ${duration}<br><br>
-                            Regards,<br>
-                            Jenkins
-                        """,
-                        mimeType: 'text/html'
-                    )
-                } else {
-                    def logFile = "${WORKSPACE}\\build_console_log.txt"
-                    writeFile file: logFile, text: currentBuild.rawBuild.getLog(10000).join("\n")
-                    emailext(
-                        to: "${EMAIL_RECIPIENTS}",
-                        subject: "MarketMap Build FAILED - ${params.RELEASE}",
-                        body: """
-                            Hello Team,<br><br>
-                            Jenkins build <b>${currentBuild.displayName}</b> for release <b>${params.RELEASE}</b> has <b>FAILED</b>.<br><br>
-                            <b>Build Details:</b><br>
-                            Build Number : ${env.BUILD_NUMBER}<br>
-                            Release      : ${params.RELEASE}<br>
-                            Branch       : ${env.BRANCH_NAME}<br>
-                            Duration     : ${duration}<br><br>
-                            Please check the attached log for details.<br><br>
-                            Regards,<br>
-                            Jenkins
-                        """,
-                        attachmentsPattern: "build_console_log.txt",
-                        mimeType: 'text/html'
-                    )
-                }
+            if (currentBuild.result == 'SUCCESS') {
+                emailext(
+                    to: "${EMAIL_RECIPIENTS}",
+                    subject: "MarketMap Build SUCCESS - ${params.RELEASE}",
+                    body: """
+                        Hello Team,<br><br>
+                        Jenkins build <b>${currentBuild.displayName}</b> for release <b>${params.RELEASE}</b> has <b>SUCCEEDED</b>.<br><br>
+                        Build Number : ${env.BUILD_NUMBER}<br>
+                        Branch       : ${env.BRANCH_NAME}<br>
+                        Duration     : ${duration}<br><br>
+                        Regards,<br>
+                        Jenkins
+                    """,
+                    mimeType: 'text/html'
+                )
+            } else {
+                def logFile = "${WORKSPACE}\\build_console_log.txt"
+                writeFile file: logFile, text: currentBuild.getLog(10000).join("\n")  // FIXED
+                emailext(
+                    to: "${EMAIL_RECIPIENTS}",
+                    subject: "MarketMap Build FAILED - ${params.RELEASE}",
+                    body: """
+                        Hello Team,<br><br>
+                        Jenkins build <b>${currentBuild.displayName}</b> for release <b>${params.RELEASE}</b> has <b>FAILED</b>.<br><br>
+                        Build Number : ${env.BUILD_NUMBER}<br>
+                        Branch       : ${env.BRANCH_NAME}<br>
+                        Duration     : ${duration}<br><br>
+                        Please check the attached log for details.<br><br>
+                        Regards,<br>
+                        Jenkins
+                    """,
+                    attachmentsPattern: "build_console_log.txt",
+                    mimeType: 'text/html'
+                )
             }
         }
     }
+}
 }

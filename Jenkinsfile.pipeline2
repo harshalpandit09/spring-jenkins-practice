@@ -14,9 +14,29 @@ pipeline {
         BUILD_DIR = "D:\\MarketMapBuilds\\${params.RELEASE_VERSION}\\CombinedBuild"
         AWS_ACCOUNT_ID = "969258966375"
         REGION = "eu-north-1"
+        EMAIL_RECIPIENTS = "harshalpandit09@gmail.com, sbmukhekar31@gmail.com"
     }
 
     stages {
+        stage('Notify Pipeline Start') {
+            steps {
+                emailext(
+                    to: "${EMAIL_RECIPIENTS}",
+                    subject: "Pipeline 2 STARTED - ${params.RELEASE_VERSION}",
+                    body: """
+                        Hello Team,<br><br>
+                        Jenkins pipeline <b>${currentBuild.displayName}</b> for release <b>${params.RELEASE_VERSION}</b> has <b>STARTED</b>.<br><br>
+                        <b>Pipeline Details:</b><br>
+                        Build Number : ${env.BUILD_NUMBER}<br>
+                        Release      : ${params.RELEASE_VERSION}<br><br>
+                        Regards,<br>
+                        Jenkins
+                    """,
+                    mimeType: 'text/html'
+                )
+            }
+        }
+
         stage('Show Selections') {
             steps {
                 script {
@@ -36,7 +56,6 @@ pipeline {
             steps {
                 script {
                     def comps = []
-
                     if (params.BUILD_SERVICES) comps << 'backend-webapi'
                     if (params.BUILD_SQL) comps << 'sql-service'
                     if (params.BUILD_METADATA) comps << 'metadata-service'
@@ -91,8 +110,45 @@ pipeline {
     }
 
     post {
+        success {
+            emailext(
+                to: "${EMAIL_RECIPIENTS}",
+                subject: "Pipeline 2 SUCCESS - ${params.RELEASE_VERSION}",
+                body: """
+                    Hello Team,<br><br>
+                    Jenkins pipeline <b>${currentBuild.displayName}</b> completed <b>SUCCESSFULLY</b>.<br><br>
+                    <b>Build Details:</b><br>
+                    Build Number : ${env.BUILD_NUMBER}<br>
+                    Release      : ${params.RELEASE_VERSION}<br>
+                    Start Time   : ${currentBuild.startTimeInMillis}<br>
+                    Duration     : ${currentBuild.durationString}<br><br>
+                    Regards,<br>
+                    Jenkins
+                """,
+                mimeType: 'text/html',
+                attachLog: false
+            )
+        }
+
         failure {
-            echo "❌ Pipeline failed."
+            emailext(
+                to: "${EMAIL_RECIPIENTS}",
+                subject: "Pipeline 2 FAILED - ${params.RELEASE_VERSION}",
+                body: """
+                    Hello Team,<br><br>
+                    Jenkins pipeline <b>${currentBuild.displayName}</b> has <b>FAILED</b>.<br><br>
+                    <b>Build Details:</b><br>
+                    Build Number : ${env.BUILD_NUMBER}<br>
+                    Release      : ${params.RELEASE_VERSION}<br>
+                    Start Time   : ${currentBuild.startTimeInMillis}<br>
+                    Duration     : ${currentBuild.durationString}<br><br>
+                    Please check the attached log.<br>
+                    Regards,<br>
+                    Jenkins
+                """,
+                mimeType: 'text/html',
+                attachLog: true
+            )
         }
     }
 }

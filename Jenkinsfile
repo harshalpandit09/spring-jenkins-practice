@@ -98,8 +98,8 @@ pipeline {
                 script {
                     echo "Building Metadata module..."
                     // Uncomment below line only for testing failure
-                    error("Forcing failure in Metadata step!")
-                    bat "mvn clean package -f metadata-service/pom.xml -DskipTests"
+                    //error("Forcing failure in Metadata step!")
+                    bat "mvvn clean package -f metadata-service/pom.xml -DskipTests"
                     bat """
                         cd metadata-service\\target
                         rename metadata-service-0.0.1-SNAPSHOT.jar metadata-service.${BUILD_TAG}.jar
@@ -148,7 +148,7 @@ pipeline {
                     Jenkins
                 """,
                 mimeType: 'text/html',
-                attachLog: true
+                attachLog: false
             )
         }
 

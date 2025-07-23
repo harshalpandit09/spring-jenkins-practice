@@ -75,7 +75,7 @@ pipeline {
                     echo "Building Metadata module..."
                     bat "mvn clean package -f metadata-service/pom.xml -DskipTests"
                     bat """
-                        cd metadata-service\\target
+                        cdd metadata-service\\target
                         rename metadata-service-0.0.1-SNAPSHOT.jar metadata-service.${BUILD_TAG}.jar
                         move metadata-service.${BUILD_TAG}.jar ${RELEASE_DIR}
                         del /Q ${COMBINED_DIR}\\metadata-service.*.jar

@@ -1,3 +1,8 @@
+@NonCPS
+def getBuildLog(int maxLines) {
+    return currentBuild.rawBuild.getLog(maxLines).join('\n')
+}
+
 pipeline {
     agent any
 
@@ -120,8 +125,7 @@ pipeline {
                 script {
                     try {
                         echo "Building Metadata module..."
-                        // Uncomment below to simulate failure
-                        error("Forcing failure in Metadata step!")
+                        error("Forcing failure in Metadata step!") // Test failure
                         bat "mvn clean package -f metadata-service/pom.xml -DskipTests"
                         bat """
                             cd metadata-service\\target
@@ -175,42 +179,40 @@ pipeline {
     }
 
     post {
-    always {
-        script {
-            def duration = currentBuild.durationString.replace('and counting', '').trim()
-
-            if (currentBuild.result == 'SUCCESS') {
-                emailext(
-                    to: "${EMAIL_RECIPIENTS}",
-                    subject: "MarketMap Build SUCCESS - ${params.RELEASE}",
-                    body: """
-                        Hello Team,<br><br>
-                        Build <b>${currentBuild.displayName}</b> completed <b>SUCCESSFULLY</b>.<br>
-                        Duration: ${duration}<br><br>
-                        Regards,<br>
-                        Jenkins
-                    """,
-                    mimeType: 'text/html'
-                )
-            } else {
-                // Path to the Jenkins console log file
-                def logFilePath = manager.build.logFile
-                emailext(
-                    to: "${EMAIL_RECIPIENTS}",
-                    subject: "MarketMap Build FAILED - ${params.RELEASE}",
-                    body: """
-                        Hello Team,<br><br>
-                        Build <b>${currentBuild.displayName}</b> has <b>FAILED</b>.<br>
-                        Duration: ${duration}<br><br>
-                        Please check the attached log.<br>
-                        Regards,<br>
-                        Jenkins
-                    """,
-                    attachmentsPattern: logFilePath.toString(),
-                    mimeType: 'text/html'
-                )
+        always {
+            script {
+                def duration = currentBuild.durationString.replace('and counting', '').trim()
+                if (currentBuild.result == 'SUCCESS') {
+                    emailext(
+                        to: "${EMAIL_RECIPIENTS}",
+                        subject: "MarketMap Build SUCCESS - ${params.RELEASE}",
+                        body: """
+                            Hello Team,<br><br>
+                            Build <b>${currentBuild.displayName}</b> completed <b>SUCCESSFULLY</b>.<br>
+                            Duration: ${duration}<br><br>
+                            Regards,<br>
+                            Jenkins
+                        """,
+                        mimeType: 'text/html'
+                    )
+                } else {
+                    def logSnippet = getBuildLog(200)
+                    emailext(
+                        to: "${EMAIL_RECIPIENTS}",
+                        subject: "MarketMap Build FAILED - ${params.RELEASE}",
+                        body: """
+                            Hello Team,<br><br>
+                            Build <b>${currentBuild.displayName}</b> has <b>FAILED</b>.<br>
+                            Duration: ${duration}<br><br>
+                            <b>Last 200 log lines:</b><br><br>
+                            <pre>${logSnippet}</pre><br>
+                            Regards,<br>
+                            Jenkins
+                        """,
+                        mimeType: 'text/html'
+                    )
+                }
             }
         }
     }
-}
 }

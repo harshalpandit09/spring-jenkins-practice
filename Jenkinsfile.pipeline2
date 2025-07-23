@@ -62,15 +62,26 @@ pipeline {
         }
 
         stage('Upload JARs to S3') {
-            when { expression { params.UPLOAD_JARS } }
-            steps {
-                withAWS(region: "${REGION}", credentials: 'aws-jenkins') {
-                    bat """
-                    aws s3 sync "${BUILD_DIR}" s3://marketmap-builds/${params.RELEASE_VERSION}/
-                    """
-                }
+    when { expression { params.UPLOAD_JARS } }
+    steps {
+        withAWS(region: "${REGION}", credentials: 'aws-jenkins') {
+            script {
+                // Check if bucket exists
+                def bucketName = "marketmap-jar-artifacts"
+                def releasePrefix = "${params.RELEASE_VERSION}/"
+
+                bat """
+                aws s3api head-bucket --bucket ${bucketName} 2>nul || aws s3 mb s3://${bucketName}
+                """
+
+                // Upload files to the release folder
+                bat """
+                aws s3 sync "${BUILD_DIR}" s3://${bucketName}/${releasePrefix}
+                """
             }
         }
+    }
+}
 
         stage('Summary') {
             steps {

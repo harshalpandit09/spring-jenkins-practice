@@ -5,7 +5,7 @@ pipeline {
         booleanParam(name: 'BUILD_SERVICES', defaultValue: true, description: 'Build Services Docker Image')
         booleanParam(name: 'BUILD_SQL', defaultValue: true, description: 'Build SQL Docker Image')
         booleanParam(name: 'BUILD_METADATA', defaultValue: true, description: 'Build Metadata Docker Image')
-        string(name: 'RELEASE_VERSION', defaultValue: '25.2.0', description: 'Release Version')
+        string(name: 'RELEASE_VERSION', defaultValue: '24.7.0', description: 'Release Version')
         booleanParam(name: 'PUSH_TO_ECR', defaultValue: true, description: 'Push Docker Images to AWS ECR')
         booleanParam(name: 'UPLOAD_JARS', defaultValue: false, description: 'Upload JARs to S3')
     }

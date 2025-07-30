@@ -2,30 +2,49 @@
 - hosts: ec2
   become: yes
   tasks:
+    # 1. Install Python 3 (required by Ansible)
+    - name: Ensure Python 3 is installed
+      raw: |
+        sudo yum install -y python3 || \
+        (sudo amazon-linux-extras enable python3.8 && sudo yum install -y python3)
+
+    # 2. Update all packages
     - name: Update packages
       yum:
         name: "*"
         state: latest
 
+    # 3. Install Docker
     - name: Install Docker
       yum:
         name: docker
         state: present
 
+    # 4. Start and enable Docker
     - name: Start and enable Docker
       service:
         name: docker
         state: started
         enabled: true
 
+    # 5. Add ec2-user to Docker group
     - name: Add ec2-user to docker group
       user:
         name: ec2-user
         groups: docker
         append: yes
 
+    # 6. Create application directory
     - name: Create application directory
       file:
         path: /opt/marketmap
         state: directory
         mode: '0755'
+
+    # 7. Verify Docker installation
+    - name: Check Docker version
+      command: docker --version
+      register: docker_version
+
+    - debug:
+        msg: "Docker version: {{ docker_version.stdout }}"

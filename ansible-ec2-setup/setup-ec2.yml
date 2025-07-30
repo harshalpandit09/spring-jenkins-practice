@@ -1,13 +1,12 @@
 ---
 - hosts: ec2
   become: yes
-  gather_facts: false  # Disable facts gathering until Python is installed
-
+  gather_facts: false  # Disable initial fact gathering until Python 3 is installed
   vars:
-    ansible_python_interpreter: /usr/bin/python3  # Force Ansible to use Python 3 globally
+    ansible_python_interpreter: /usr/bin/python3  # Use Python 3 for most tasks (after installation)
 
   tasks:
-    # 1. Install Python 3 on Amazon Linux 2
+    # 1. Install Python 3 on Amazon Linux 2 (if not already present)
     - name: Install Python 3 on Amazon Linux 2
       raw: |
         if ! command -v python3 &> /dev/null; then
@@ -16,20 +15,24 @@
         fi
 
     # 2. Gather facts now that Python 3 is installed
-    - name: Gather facts
+    - name: Gather facts (after installing Python 3)
       setup:
 
-    # 3. Update all system packages
+    # 3. Update all system packages (using Python 2 for yum)
     - name: Update system packages
       yum:
         name: "*"
         state: latest
+      vars:
+        ansible_python_interpreter: /usr/bin/python2  # Use Python 2 for yum module
 
-    # 4. Install Docker
+    # 4. Install Docker (using Python 2 for yum)
     - name: Install Docker
       yum:
         name: docker
         state: present
+      vars:
+        ansible_python_interpreter: /usr/bin/python2  # Use Python 2 for yum module
 
     # 5. Start and enable Docker service
     - name: Start and enable Docker

@@ -1,10 +1,10 @@
 pipeline {
-    agent any
+    agent { label 'Windows-WSL-Agent' }  // Run on your WSL-enabled Windows agent
 
     parameters {
         string(name: 'CLIENT', defaultValue: 'ClientA', description: 'Client Name')
         string(name: 'CLIENT_IP', defaultValue: '54.159.128.24', description: 'EC2 Public IP for the client')
-        string(name: 'ENVIRONMENT', defaultValue: 'dev', description: 'Environment')
+        string(name: 'ENVIRONMENT', defaultValue: 'dev', description: 'Environment (dev/staging/prod)')
     }
 
     stages {
@@ -18,23 +18,26 @@ pipeline {
         stage('Prepare Inventory File') {
             steps {
                 echo "Generating inventory.ini with CLIENT_IP=${params.CLIENT_IP}"
-                sh '''
-                cd ansible-ec2-setup
-                echo "[ec2]" > inventory.ini
-                echo "${CLIENT_IP} ansible_user=ec2-user ansible_ssh_private_key_file=~/.ssh/marketmap-key.pem" >> inventory.ini
+                bat """
+                wsl bash -c '
+                cd ansible-ec2-setup &&
+                echo "[ec2]" > inventory.ini &&
+                echo "${params.CLIENT_IP} ansible_user=ec2-user ansible_ssh_private_key_file=~/.ssh/marketmap-key.pem" >> inventory.ini &&
                 cat inventory.ini
-                '''
+                '
+                """
             }
         }
 
         stage('Run Ansible Playbook') {
             steps {
-                echo "Running Ansible Playbook for client=${params.CLIENT}, environment=${params.ENVIRONMENT}"
-                sh '''
-                cd ansible-ec2-setup
-                wsl ansible-playbook -i inventory.ini setup-ec2.yml \
-                    --extra-vars "client=${CLIENT} environment=${ENVIRONMENT}"
-                '''
+                echo "Running Ansible playbook..."
+                bat """
+                wsl bash -c '
+                cd ansible-ec2-setup &&
+                ansible-playbook -i inventory.ini setup-ec2.yml --extra-vars "client=${params.CLIENT} environment=${params.ENVIRONMENT}"
+                '
+                """
             }
         }
     }

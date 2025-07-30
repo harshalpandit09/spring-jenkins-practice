@@ -19,12 +19,10 @@ pipeline {
             steps {
                 echo "Generating inventory.ini with CLIENT_IP=${params.CLIENT_IP}"
                 bat """
-                wsl bash -c '
-                cd ansible-ec2-setup &&
-                echo "[ec2]" > inventory.ini &&
-                echo "${params.CLIENT_IP} ansible_user=ec2-user ansible_ssh_private_key_file=~/.ssh/marketmap-key.pem" >> inventory.ini &&
-                cat inventory.ini
-                '
+                wsl bash -c "cd ansible-ec2-setup && \
+                echo '[ec2]' > inventory.ini && \
+                echo '${params.CLIENT_IP} ansible_user=ec2-user ansible_ssh_private_key_file=~/.ssh/marketmap-key.pem' >> inventory.ini && \
+                cat inventory.ini"
                 """
             }
         }
@@ -33,10 +31,8 @@ pipeline {
             steps {
                 echo "Running Ansible playbook..."
                 bat """
-                wsl bash -c '
-                cd ansible-ec2-setup &&
-                ansible-playbook -i inventory.ini setup-ec2.yml --extra-vars "client=${params.CLIENT} environment=${params.ENVIRONMENT}"
-                '
+                wsl bash -c "cd ansible-ec2-setup && \
+                ansible-playbook -i inventory.ini setup-ec2.yml --extra-vars 'client=${params.CLIENT} environment=${params.ENVIRONMENT}'"
                 """
             }
         }

@@ -8,6 +8,13 @@ pipeline {
     }
 
     stages {
+        stage('Cleanup Workspace') {
+            steps {
+                echo "Cleaning up old files in workspace..."
+                bat 'del /Q /F "ansible-ec2-setup\\inventory.ini" 2>nul || echo No inventory.ini to delete'
+            }
+        }
+
         stage('Checkout Repository') {
             steps {
                 echo "Checking out repository..."
@@ -19,10 +26,12 @@ pipeline {
             steps {
                 echo "Generating inventory.ini with CLIENT_IP=${params.CLIENT_IP}"
                 bat """
-                wsl -d Ubuntu-22.04 sh -c "cd ansible-ec2-setup && \
-                echo '[ec2]' > inventory.ini && \
-                echo '${params.CLIENT_IP} ansible_user=ec2-user ansible_ssh_private_key_file=~/.ssh/marketmap-key.pem' >> inventory.ini && \
-                cat inventory.ini"
+                wsl -d Ubuntu-22.04 sh -c '
+                echo "[ec2]" > /tmp/inventory.ini &&
+                echo "${params.CLIENT_IP} ansible_user=ec2-user ansible_ssh_private_key_file=~/.ssh/marketmap-key.pem" >> /tmp/inventory.ini &&
+                cat /tmp/inventory.ini &&
+                cp /tmp/inventory.ini /mnt/d/DevOps/Devops_Project/JenkinsAgent/workspace/"Pipeline 3 - EC2 Setup"/ansible-ec2-setup/inventory.ini
+                '
                 """
             }
         }
@@ -31,8 +40,10 @@ pipeline {
             steps {
                 echo "Running Ansible playbook..."
                 bat """
-                wsl -d Ubuntu-22.04 sh -c "cd ansible-ec2-setup && \
-                ansible-playbook -i inventory.ini setup-ec2.yml --extra-vars 'client=${params.CLIENT} environment=${params.ENVIRONMENT}'"
+                wsl -d Ubuntu-22.04 sh -c '
+                cd /mnt/d/DevOps/Devops_Project/JenkinsAgent/workspace/"Pipeline 3 - EC2 Setup"/ansible-ec2-setup &&
+                ansible-playbook -i inventory.ini setup-ec2.yml --extra-vars "client=${params.CLIENT} environment=${params.ENVIRONMENT}"
+                '
                 """
             }
         }

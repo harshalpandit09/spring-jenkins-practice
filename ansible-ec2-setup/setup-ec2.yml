@@ -1,47 +1,39 @@
 ---
 - hosts: ec2
   become: yes
-  gather_facts: false  # Disable initial fact gathering until Python 3 is installed
+  gather_facts: false
   vars:
-    ansible_python_interpreter: /usr/bin/python3  # Use Python 3 for most tasks (after installation)
+    ansible_python_interpreter: /usr/bin/python3  # Use Python 3 everywhere
 
   tasks:
-    # 1. Install Python 3 on Amazon Linux 2 (if not already present)
-    - name: Install Python 3 on Amazon Linux 2
+    # 1. Ensure Python 3 is installed
+    - name: Install Python 3 on Amazon Linux
       raw: |
         if ! command -v python3 &> /dev/null; then
           sudo yum install -y python3 || \
           (sudo amazon-linux-extras enable python3.8 && sudo yum install -y python3)
         fi
 
-    # 2. Gather facts now that Python 3 is installed
+    # 2. Gather facts now that Python 3 is present
     - name: Gather facts (after installing Python 3)
       setup:
 
-    # 3. Update all system packages (using Python 2 for yum)
+    # 3. Update all system packages
     - name: Update system packages
-      yum:
-        name: "*"
-        state: latest
-      vars:
-        ansible_python_interpreter: /usr/bin/python2  # Use Python 2 for yum module
+      command: sudo yum update -y
 
-    # 4. Install Docker (using Python 2 for yum)
+    # 4. Install Docker
     - name: Install Docker
-      yum:
-        name: docker
-        state: present
-      vars:
-        ansible_python_interpreter: /usr/bin/python2  # Use Python 2 for yum module
+      command: sudo yum install -y docker
 
-    # 5. Start and enable Docker service
+    # 5. Start and enable Docker
     - name: Start and enable Docker
       service:
         name: docker
         state: started
         enabled: true
 
-    # 6. Add ec2-user to the Docker group
+    # 6. Add ec2-user to Docker group
     - name: Add ec2-user to docker group
       user:
         name: ec2-user
@@ -60,7 +52,6 @@
       command: docker --version
       register: docker_version
 
-    # 9. Print Docker version
     - name: Display Docker version
       debug:
         msg: "Docker version: {{ docker_version.stdout }}"

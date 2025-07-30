@@ -1,5 +1,5 @@
 pipeline {
-    agent { label 'wsl' }  // This label should match the label of Windows-WSL-Agent
+    agent any
 
     parameters {
         string(name: 'CLIENT', defaultValue: 'ClientA', description: 'Client Name')
@@ -11,7 +11,7 @@ pipeline {
         stage('Checkout Repository') {
             steps {
                 echo "Checking out repository..."
-                git branch: 'main', url: 'https://github.com/<your-repo>/MarketMap.git'
+                git branch: 'main', url: 'https://github.com/harshalpandit09/spring-jenkins-practice.git'
             }
         }
 

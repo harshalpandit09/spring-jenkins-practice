@@ -46,6 +46,17 @@ ansible-playbook -i inventory.ini setup-ec2.yml --extra-vars 'client=${params.CL
 """
             }
         }
+
+        stage('Verify Installation') {
+            steps {
+                echo "Verifying installation on EC2 instance..."
+                // Run SSH checks for Python, Docker, and /opt/marketmap directory
+                bat """
+wsl -d Ubuntu-22.04 sh -c "ssh -o StrictHostKeyChecking=no -i ~/.ssh/marketmap-key.pem ec2-user@${params.CLIENT_IP} \
+'python3 --version && docker --version && ls -ld /opt/marketmap'"
+"""
+            }
+        }
     }
 
     post {

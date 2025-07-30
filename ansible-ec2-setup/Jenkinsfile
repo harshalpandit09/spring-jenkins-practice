@@ -1,5 +1,5 @@
 pipeline {
-    agent any
+    agent { label 'wsl' }  // This label should match the label of Windows-WSL-Agent
 
     parameters {
         string(name: 'CLIENT', defaultValue: 'ClientA', description: 'Client Name')

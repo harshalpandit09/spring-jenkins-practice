@@ -1,10 +1,10 @@
 ---
 - hosts: ec2
   become: yes
-  gather_facts: false  # Disable gathering facts until Python is installed
+  gather_facts: false  # disable facts gathering until Python is installed
 
   tasks:
-    # 1. Install Python 3 (raw commands since Python might not be present)
+    # 1. Install Python 3 on Amazon Linux 2 (so Ansible can run Python modules)
     - name: Install Python 3 on Amazon Linux 2
       raw: |
         if ! command -v python3 &> /dev/null; then
@@ -12,43 +12,41 @@
           (sudo amazon-linux-extras enable python3.8 && sudo yum install -y python3)
         fi
 
-    # 2. Re-enable facts gathering
+    # 2. Gather facts now that Python is available
     - name: Gather facts
       setup:
 
-    # 3. Update all packages
-    - name: Update packages
+    # 3. Update all packages (use Python 2 for yum due to Amazon Linux 2's Yum)
+    - name: Update system packages (Yum update)
       yum:
         name: "*"
         state: latest
       vars:
-        ansible_python_interpreter: /usr/bin/python3
+        ansible_python_interpreter: /usr/bin/python2  # use Python 2 for Yum
 
-    # 4. Install Docker
+    # 4. Install Docker (using Yum under Python 2)
     - name: Install Docker
       yum:
         name: docker
         state: present
       vars:
-        ansible_python_interpreter: /usr/bin/python3
+        ansible_python_interpreter: /usr/bin/python2  # use Python 2 for Yum
 
-    # 5. Start and enable Docker
+    # 5. Start and enable Docker service (Python 3 is fine for service module)
     - name: Start and enable Docker
       service:
         name: docker
         state: started
         enabled: true
-      vars:
-        ansible_python_interpreter: /usr/bin/python3
+      # (No interpreter override needed here, Python 3 works for this module)
 
-    # 6. Add ec2-user to Docker group
+    # 6. Add ec2-user to the docker group (for Docker usage without sudo)
     - name: Add ec2-user to docker group
       user:
         name: ec2-user
         groups: docker
         append: yes
-      vars:
-        ansible_python_interpreter: /usr/bin/python3
+      # (No interpreter override needed here)
 
     # 7. Create application directory
     - name: Create application directory
@@ -56,15 +54,14 @@
         path: /opt/marketmap
         state: directory
         mode: '0755'
-      vars:
-        ansible_python_interpreter: /usr/bin/python3
+      # (No interpreter override needed here)
 
     # 8. Verify Docker installation
     - name: Check Docker version
       command: docker --version
       register: docker_version
-      vars:
-        ansible_python_interpreter: /usr/bin/python3
 
-    - debug:
+    # 9. Print Docker version (debug output)
+    - name: Display Docker version
+      debug:
         msg: "Docker version: {{ docker_version.stdout }}"

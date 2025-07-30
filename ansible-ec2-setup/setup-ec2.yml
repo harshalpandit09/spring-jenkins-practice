@@ -1,50 +1,70 @@
 ---
 - hosts: ec2
   become: yes
-  tasks:
-    # 1. Install Python 3 (required by Ansible)
-    - name: Ensure Python 3 is installed
-      raw: |
-        sudo yum install -y python3 || \
-        (sudo amazon-linux-extras enable python3.8 && sudo yum install -y python3)
+  gather_facts: false  # Disable gathering facts until Python is installed
 
-    # 2. Update all packages
+  tasks:
+    # 1. Install Python 3 (raw commands since Python might not be present)
+    - name: Install Python 3 on Amazon Linux 2
+      raw: |
+        if ! command -v python3 &> /dev/null; then
+          sudo yum install -y python3 || \
+          (sudo amazon-linux-extras enable python3.8 && sudo yum install -y python3)
+        fi
+
+    # 2. Re-enable facts gathering
+    - name: Gather facts
+      setup:
+
+    # 3. Update all packages
     - name: Update packages
       yum:
         name: "*"
         state: latest
+      vars:
+        ansible_python_interpreter: /usr/bin/python3
 
-    # 3. Install Docker
+    # 4. Install Docker
     - name: Install Docker
       yum:
         name: docker
         state: present
+      vars:
+        ansible_python_interpreter: /usr/bin/python3
 
-    # 4. Start and enable Docker
+    # 5. Start and enable Docker
     - name: Start and enable Docker
       service:
         name: docker
         state: started
         enabled: true
+      vars:
+        ansible_python_interpreter: /usr/bin/python3
 
-    # 5. Add ec2-user to Docker group
+    # 6. Add ec2-user to Docker group
     - name: Add ec2-user to docker group
       user:
         name: ec2-user
         groups: docker
         append: yes
+      vars:
+        ansible_python_interpreter: /usr/bin/python3
 
-    # 6. Create application directory
+    # 7. Create application directory
     - name: Create application directory
       file:
         path: /opt/marketmap
         state: directory
         mode: '0755'
+      vars:
+        ansible_python_interpreter: /usr/bin/python3
 
-    # 7. Verify Docker installation
+    # 8. Verify Docker installation
     - name: Check Docker version
       command: docker --version
       register: docker_version
+      vars:
+        ansible_python_interpreter: /usr/bin/python3
 
     - debug:
         msg: "Docker version: {{ docker_version.stdout }}"
